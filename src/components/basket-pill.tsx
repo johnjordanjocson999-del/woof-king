@@ -1,22 +1,21 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ShoppingBag, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 /**
  * Floating basket chip — desktop bottom-right, phone above the tab bar.
- * Hidden on /basket and /checkout so payment / photo UI stays clear.
+ * Drawer stays light (no full line list) so every page stays fast to open.
  */
 export function BasketPill({
   count,
   totalLabel,
-  children,
 }: {
   count: number;
   totalLabel: string;
-  children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const panelId = useId();
@@ -63,9 +62,7 @@ export function BasketPill({
           "border-[color-mix(in_oklab,var(--ember)_60%,transparent)]",
           "bg-[var(--ink)] shadow-[0_12px_32px_-10px_rgba(0,0,0,0.85)]",
           "active:scale-[0.97]",
-          // Compact on phone, original size on desktop
           "gap-2 py-2 pl-3 pr-2 md:min-h-12 md:gap-3 md:py-2.5 md:pl-4 md:pr-2.5",
-          // Phone: clear of tab bar + sticky buy bars; desktop: classic corner
           "right-[max(0.85rem,env(safe-area-inset-right))] bottom-[calc(5.75rem+env(safe-area-inset-bottom))] md:bottom-[max(1.25rem,env(safe-area-inset-bottom))]",
           open && "pointer-events-none opacity-0",
         )}
@@ -98,9 +95,9 @@ export function BasketPill({
             aria-modal="true"
             aria-label="Your basket"
             className={cn(
-              "absolute inset-x-0 bottom-0 max-h-[88dvh] overflow-y-auto rounded-t-[var(--radius-xl)] border-t border-[var(--line-strong)] bg-[var(--surface)] p-5",
+              "absolute inset-x-0 bottom-0 overflow-y-auto rounded-t-[var(--radius-xl)] border-t border-[var(--line-strong)] bg-[var(--surface)] p-5",
               "pb-[max(2rem,env(safe-area-inset-bottom))]",
-              "sm:inset-y-0 sm:left-auto sm:right-0 sm:w-[26rem] sm:max-h-none sm:rounded-none sm:rounded-l-[var(--radius-xl)] sm:border-l sm:border-t-0 sm:p-6",
+              "sm:inset-y-auto sm:bottom-6 sm:right-6 sm:left-auto sm:w-[22rem] sm:rounded-[var(--radius-xl)] sm:border sm:border-[var(--line)] sm:p-6",
             )}
           >
             <div className="mb-5 flex items-center justify-between gap-4">
@@ -115,7 +112,19 @@ export function BasketPill({
                 <X size={16} aria-hidden />
               </button>
             </div>
-            {children}
+
+            <p className="muted text-sm leading-6">
+              {count} item{count === 1 ? "" : "s"} · {totalLabel}
+            </p>
+
+            <div className="mt-5 grid gap-2">
+              <Link href="/checkout" className="btn btn-primary w-full" onClick={() => setOpen(false)}>
+                Checkout
+              </Link>
+              <Link href="/basket" className="btn btn-ghost w-full" onClick={() => setOpen(false)}>
+                View full basket
+              </Link>
+            </div>
           </div>
         </div>
       ) : null}

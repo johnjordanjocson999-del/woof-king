@@ -1,16 +1,25 @@
+import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
 import { parsePrepWeekdays, type WeeklySchedule } from "@/lib/time";
 import type { Settings } from "@prisma/client";
 
-/**
- * Settings is a single row. Reading it lazily creates it, so a fresh clone of
- * the repo boots without a seed step and the owner never meets an empty page.
- */
-export async function getSettings(): Promise<Settings> {
+async function loadSettings(): Promise<Settings> {
   const existing = await db.settings.findUnique({ where: { id: "singleton" } });
   if (existing) return existing;
   return db.settings.create({ data: { id: "singleton" } });
 }
+
+/**
+ * Deduped within a request + cached across requests (60s).
+ * Storefront layout hits this on every navigation — must stay cheap.
+ */
+export const getSettings = cache(async (): Promise<Settings> =>
+  unstable_cache(loadSettings, ["wk-settings"], {
+    revalidate: 60,
+    tags: ["settings"],
+  })(),
+);
 
 export function scheduleOf(settings: Settings): WeeklySchedule {
   return {
@@ -24,11 +33,6 @@ export function scheduleOf(settings: Settings): WeeklySchedule {
 
 export type VatMode = "none" | "inclusive" | "exclusive";
 
-/**
- * VAT stays off until the owner ticks "VAT registered" in settings. A bakery
- * that is not registered must not print tax on a receipt, so the toggle gates
- * the mode rather than the mode standing alone.
- */
 export function vatOf(settings: Settings): { mode: VatMode; rateBps: number } {
   if (!settings.vatRegistered) return { mode: "none", rateBps: 0 };
   return { mode: settings.vatMode as VatMode, rateBps: settings.vatRateBps };

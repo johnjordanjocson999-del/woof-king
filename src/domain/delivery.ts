@@ -144,19 +144,26 @@ export async function deliveryWindowsForMenu(menuId: string, date: Date) {
   // Prefer windows explicitly tied to this menu; fall back to same-day globals.
   const forMenu = windows.filter((w) => w.menuId === menuId);
   const list = forMenu.length > 0 ? forMenu : windows;
+  if (list.length === 0) return [];
 
-  return Promise.all(
-    list.map(async (window) => {
-      const booked = await db.order.count({
-        where: {
-          deliveryWindowId: window.id,
-          paymentStatus: { in: ["pending", "submitted", "paid"] },
-          fulfillmentStatus: { not: "cancelled" },
-        },
-      });
-      return { ...window, booked };
-    }),
+  // One groupBy instead of N count queries (was a major menu/home lag source).
+  const counts = await db.order.groupBy({
+    by: ["deliveryWindowId"],
+    where: {
+      deliveryWindowId: { in: list.map((w) => w.id) },
+      paymentStatus: { in: ["pending", "submitted", "paid"] },
+      fulfillmentStatus: { not: "cancelled" },
+    },
+    _count: { _all: true },
+  });
+  const bookedByWindow = new Map(
+    counts.map((row) => [row.deliveryWindowId, row._count._all]),
   );
+
+  return list.map((window) => ({
+    ...window,
+    booked: bookedByWindow.get(window.id) ?? 0,
+  }));
 }
 
 export function windowKey(date: Date): string {

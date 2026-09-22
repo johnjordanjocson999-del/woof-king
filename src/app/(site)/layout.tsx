@@ -9,15 +9,14 @@ import { formatPeso } from "@/lib/money";
 import { formatDay } from "@/lib/time";
 import { SiteHeader } from "@/components/site-chrome";
 import { BasketPill } from "@/components/basket-pill";
-import { BasketLines, BasketTotals } from "@/components/basket-lines";
 import { RevealRoot } from "@/components/reveal-root";
 import { BrandLogo } from "@/components/brand-marks";
 import { InstallAppButton } from "@/components/install-app";
-import { MobileTabBar } from "@/components/mobile-tab-bar";
-import { ActiveOrderToast } from "@/components/active-order-toast";
-import { getActiveOrdersForVisitor } from "@/domain/active-orders";
+import { ActiveOrderChrome } from "@/components/active-order-chrome";
 
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
+  // Cached settings/menu + parallel auth/cart — keep this path short.
+  // Active orders stream separately so taps don't wait on that query.
   const [settings, menu, cart, user] = await Promise.all([
     getSettings(),
     getActiveMenu(),
@@ -25,7 +24,9 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
     currentUser(),
   ]);
   const basket = resolveBasket(cart, menu, settings);
-  const activeOrders = await getActiveOrdersForVisitor(user?.id);
+  const staff = isStaff(user);
+  const signedIn = Boolean(user);
+  const itemCount = basket.totals.itemCount;
 
   return (
     <>
@@ -34,10 +35,10 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
       </a>
 
       <SiteHeader
-        signedIn={Boolean(user)}
-        showAdmin={isStaff(user)}
-        basketCount={basket.totals.itemCount}
-        activeOrderCount={activeOrders.length}
+        signedIn={signedIn}
+        showAdmin={staff}
+        basketCount={itemCount}
+        activeOrderCount={0}
       />
 
       <main id="main" className="pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-0">
@@ -101,7 +102,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
               Track an order
             </Link>
             <InstallAppButton variant="ghost" className="mt-2 w-fit" label="Get the app" />
-            {isStaff(user) ? (
+            {staff ? (
               <Link href="/admin" className="btn btn-ghost btn-sm mt-1 w-fit">
                 Admin
               </Link>
@@ -118,36 +119,12 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
       </footer>
 
       {/*
-        The docked basket is rendered from the layout so it survives navigation
-        between the menu, a product page and the basket page itself.
+        Only ship count/total on every page — full line items live on /basket.
+        That cut a large RSC payload that made every tap feel stuck.
       */}
-      <BasketPill count={basket.totals.itemCount} totalLabel={formatPeso(basket.totals.totalCentavos)}>
-        <div className="grid gap-6">
-          <BasketLines basket={basket} compact />
-          <BasketTotals basket={basket} />
-          <div className="grid gap-2">
-            <Link href="/checkout" className="btn btn-primary w-full">
-              Checkout
-            </Link>
-            <Link href="/basket" className="btn btn-ghost w-full">
-              View full basket
-            </Link>
-          </div>
-          {menu ? (
-            <p className="faint text-center text-xs leading-5">
-              Collection {formatDay(menu.pickupDate)}. Payment is taken in full at checkout.
-            </p>
-          ) : null}
-        </div>
-      </BasketPill>
+      <BasketPill count={itemCount} totalLabel={formatPeso(basket.totals.totalCentavos)} />
 
-      <MobileTabBar
-        basketCount={basket.totals.itemCount}
-        signedIn={Boolean(user)}
-        activeOrderCount={activeOrders.length}
-      />
-
-      <ActiveOrderToast orders={activeOrders} />
+      <ActiveOrderChrome userId={user?.id} signedIn={signedIn} basketCount={itemCount} />
 
       <RevealRoot />
     </>

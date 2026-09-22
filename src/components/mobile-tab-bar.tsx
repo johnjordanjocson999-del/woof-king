@@ -80,11 +80,12 @@ export function MobileTabBar({
               <Link
                 href={href}
                 className={cn(
-                  "relative flex min-h-[3.25rem] flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1 transition-colors",
+                  "relative flex min-h-[3.25rem] flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1",
                   active
                     ? "text-[var(--ember)]"
                     : "text-[var(--faint)] active:text-[var(--paper)]",
                 )}
+                prefetch={false}
               >
                 <span className="relative">
                   <Icon

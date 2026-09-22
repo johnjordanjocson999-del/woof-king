@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { db } from "@/lib/db";
 import { formatDay } from "@/lib/time";
 import { readTrackedOrders } from "@/lib/tracked-orders";
@@ -81,10 +82,11 @@ function rank(a: ActiveOrderNotice, b: ActiveOrderNotice): number {
 /**
  * Active orders for the current visitor: signed-in by userId, plus any
  * guest orders remembered in the wk_orders cookie after checkout / lookup.
+ * Request-deduped so layout + pages share one query.
  */
-export async function getActiveOrdersForVisitor(
+export const getActiveOrdersForVisitor = cache(async (
   userId?: string | null,
-): Promise<ActiveOrderNotice[]> {
+): Promise<ActiveOrderNotice[]> => {
   const tracked = await readTrackedOrders();
   if (!userId && tracked.length === 0) return [];
 
@@ -99,8 +101,14 @@ export async function getActiveOrdersForVisitor(
       fulfillmentStatus: { in: [...ACTIVE_FULFILLMENT] },
       OR: orFilters,
     },
-    include: {
-      items: { select: { id: true } },
+    select: {
+      code: true,
+      accessToken: true,
+      fulfillmentStatus: true,
+      paymentStatus: true,
+      fulfillment: true,
+      pickupDate: true,
+      _count: { select: { items: true } },
     },
     orderBy: { createdAt: "desc" },
     take: 12,
@@ -108,7 +116,7 @@ export async function getActiveOrdersForVisitor(
 
   const notices: ActiveOrderNotice[] = rows.map((order) => {
     const pickupDateLabel = formatDay(order.pickupDate);
-    const itemCount = order.items.length;
+    const itemCount = order._count.items;
     const base = {
       code: order.code,
       fulfillmentStatus: order.fulfillmentStatus,
@@ -132,7 +140,6 @@ export async function getActiveOrdersForVisitor(
     };
   });
 
-  // Dedupe by code (member + cookie overlap)
   const seen = new Set<string>();
   const unique = notices.filter((n) => {
     if (seen.has(n.code)) return false;
@@ -141,4 +148,4 @@ export async function getActiveOrdersForVisitor(
   });
 
   return unique.sort(rank);
-}
+});

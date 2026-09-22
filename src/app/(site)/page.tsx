@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Clock, MapPin, Phone, Truck } from "lucide-react";
+import { unstable_cache } from "next/cache";
 import { getSettings, scheduleOf } from "@/lib/settings";
 import { getActiveMenu, ordersOpen } from "@/domain/menu";
 import { deliveryWindowsForMenu } from "@/domain/delivery";
@@ -14,12 +15,8 @@ import { ProductCard } from "@/components/product-card";
 import { BrandLogo } from "@/components/brand-marks";
 import { MobileHomePanel } from "@/components/mobile-home-panel";
 
-export default async function HomePage() {
-  const now = new Date();
-  const [settings, menu, cart, featured] = await Promise.all([
-    getSettings(),
-    getActiveMenu(now),
-    readCart(),
+const getFeaturedProducts = unstable_cache(
+  async () =>
     db.product.findMany({
       where: { featured: true, archived: false },
       orderBy: { name: "asc" },
@@ -34,6 +31,28 @@ export default async function HomePage() {
         imageZoom: true,
       },
     }),
+  ["wk-featured-products"],
+  { revalidate: 60, tags: ["menu"] },
+);
+
+const getActivePickupSlots = unstable_cache(
+  async () =>
+    db.pickupSlot.findMany({
+      where: { active: true },
+      orderBy: { position: "asc" },
+    }),
+  ["wk-pickup-slots"],
+  { revalidate: 120, tags: ["settings"] },
+);
+
+export default async function HomePage() {
+  const now = new Date();
+  const [settings, menu, cart, featured, slots] = await Promise.all([
+    getSettings(),
+    getActiveMenu(now),
+    readCart(),
+    getFeaturedProducts(),
+    getActivePickupSlots(),
   ]);
   const cycle = menu
     ? {
@@ -47,13 +66,9 @@ export default async function HomePage() {
   const open = ordersOpen(menu, now);
   const remaining = countdown(cycle.cutoffAt, now);
   const inBasket = new Map(cart.lines.map((line) => [line.menuItemId, line.qty]));
-  const [slots, deliveryWindows] = await Promise.all([
-    db.pickupSlot.findMany({
-      where: { active: true },
-      orderBy: { position: "asc" },
-    }),
-    menu ? deliveryWindowsForMenu(menu.id, menu.pickupDate) : Promise.resolve([]),
-  ]);
+  const deliveryWindows = menu
+    ? await deliveryWindowsForMenu(menu.id, menu.pickupDate)
+    : [];
 
   return (
     <>

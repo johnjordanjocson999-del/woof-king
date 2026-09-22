@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 import { db } from "@/lib/db";
 import { sessionToken } from "@/lib/ids";
 import type { User } from "@prisma/client";
@@ -33,7 +34,8 @@ export async function destroySession(): Promise<void> {
   jar.delete(COOKIE);
 }
 
-export async function currentUser(): Promise<User | null> {
+/** One session lookup per request (layout + page share this). */
+export const currentUser = cache(async (): Promise<User | null> => {
   const jar = await cookies();
   const token = jar.get(COOKIE)?.value;
   if (!token) return null;
@@ -45,7 +47,7 @@ export async function currentUser(): Promise<User | null> {
     return null;
   }
   return session.user;
-}
+});
 
 export function isStaff(user: User | null): boolean {
   return user?.role === "owner" || user?.role === "staff";

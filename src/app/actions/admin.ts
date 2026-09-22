@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { db } from "@/lib/db";
 import { requireStaff } from "@/lib/auth";
 import { saveUpload } from "@/lib/media";
@@ -11,12 +11,16 @@ import { getSettings, scheduleOf } from "@/lib/settings";
 import { MAX_MENU_ITEMS, MIN_MENU_ITEMS } from "@/domain/menu";
 
 function revalidateAdmin() {
+  // Immediate cache bust from Server Actions (Next 16: use updateTag, not revalidateTag alone).
+  updateTag("settings");
+  updateTag("menu");
   revalidatePath("/admin", "layout");
   revalidatePath("/", "layout");
 }
 
 /** Fulfillment moves only — don't rebuild the whole storefront. */
 function revalidateFulfillment() {
+  updateTag("menu");
   revalidatePath("/admin/orders");
   revalidatePath("/admin");
 }

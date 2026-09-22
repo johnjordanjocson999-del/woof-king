@@ -19,6 +19,11 @@ const nextConfig: NextConfig = {
   ],
   experimental: {
     serverActions: { bodySizeLimit: "8mb" },
+    // Soft navigations reuse recent RSC payloads so taps feel instant.
+    staleTimes: {
+      dynamic: 30,
+      static: 180,
+    },
   },
   async headers() {
     return [
