@@ -1,12 +1,15 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
+import { Star } from "lucide-react";
 import { placeOrder, type CheckoutState, type CheckoutValues } from "@/app/actions/checkout";
 import { ChoiceCard, Field, Notice } from "@/components/ui";
 import { SubmitButton } from "@/components/form";
+import { SavedPlacesPicker } from "@/components/saved-places-picker";
 import { formatClock } from "@/lib/time";
 import { formatPeso } from "@/lib/money";
 import type { CheckoutPaymentOption } from "@/domain/payment-options";
+import type { SavedAddress } from "@/lib/saved-addresses";
 
 interface Slot {
   id: string;
@@ -48,6 +51,9 @@ export function CheckoutForm({
   defaultName,
   defaultPhone,
   defaultEmail,
+  savedAddresses = [],
+  defaultDeliveryAddress = "",
+  defaultDeliveryInstructions = "",
 }: {
   slots: Slot[];
   deliveryWindows: DeliveryWindowOption[];
@@ -60,8 +66,18 @@ export function CheckoutForm({
   defaultName?: string;
   defaultPhone?: string;
   defaultEmail?: string;
+  savedAddresses?: SavedAddress[];
+  defaultDeliveryAddress?: string;
+  defaultDeliveryInstructions?: string;
 }) {
   const [state, action] = useActionState(placeOrder, { ok: false } as CheckoutState);
+  const [places, setPlaces] = useState<SavedAddress[]>(savedAddresses);
+  const [saveAddress, setSaveAddress] = useState(true);
+  const [favoriteAddress, setFavoriteAddress] = useState(false);
+
+  useEffect(() => {
+    setPlaces(savedAddresses);
+  }, [savedAddresses]);
 
   const [values, setValues] = useState<CheckoutValues>(() => ({
     contactName: defaultName ?? "",
@@ -71,12 +87,11 @@ export function CheckoutForm({
     fulfillment: "pickup",
     pickupSlotId: firstOpenSlotId(slots),
     deliveryWindowId: firstOpenWindowId(deliveryWindows),
-    deliveryAddress: "",
-    deliveryInstructions: "",
+    deliveryAddress: defaultDeliveryAddress,
+    deliveryInstructions: defaultDeliveryInstructions,
     paymentMethod: paymentOptions[0]?.slug ?? "",
   }));
 
-  // After a failed submit, restore exactly what they typed — do not wipe the form.
   useEffect(() => {
     if (state.values) setValues(state.values);
   }, [state]);
@@ -101,7 +116,6 @@ export function CheckoutForm({
     [paymentOptions, fulfillment],
   );
 
-  // If the chosen method disappears (e.g. cash on delivery), fall back to the first visible one.
   useEffect(() => {
     if (visibleMethods.length === 0) return;
     if (!visibleMethods.some((m) => m.slug === values.paymentMethod)) {
@@ -109,6 +123,12 @@ export function CheckoutForm({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only when method list changes
   }, [visibleMethods, values.paymentMethod]);
+
+  const selectedIsFavorite = places.some(
+    (p) =>
+      p.favorite &&
+      p.address.trim().toLowerCase() === values.deliveryAddress.trim().toLowerCase(),
+  );
 
   return (
     <form action={action} className="grid gap-10">
@@ -273,6 +293,18 @@ export function CheckoutForm({
               )}
             </div>
 
+            <SavedPlacesPicker
+              places={places}
+              selectedAddress={values.deliveryAddress}
+              onPlacesChange={setPlaces}
+              onPick={(place) => {
+                patch("deliveryAddress", place.address);
+                patch("deliveryInstructions", place.instructions);
+                setFavoriteAddress(place.favorite);
+                setSaveAddress(true);
+              }}
+            />
+
             <Field label="Delivery address" required error={state.fieldErrors?.deliveryAddress}>
               <textarea
                 name="deliveryAddress"
@@ -291,6 +323,53 @@ export function CheckoutForm({
                 placeholder="Landmarks, gate codes, rider app preference"
               />
             </Field>
+
+            <div className="grid gap-2 rounded-[var(--radius-md)] border border-[var(--line)] bg-[var(--surface-2)] p-3">
+              <label className="flex items-start gap-2.5 text-sm leading-5">
+                <input
+                  type="checkbox"
+                  name="saveAddress"
+                  value="1"
+                  checked={saveAddress}
+                  onChange={(e) => setSaveAddress(e.target.checked)}
+                  className="mt-1"
+                />
+                <span>
+                  <span className="font-semibold text-[var(--paper)]">Save this address</span>
+                  <span className="muted block text-xs leading-4">
+                    Keep it in your recent places so you don’t type it again next week.
+                  </span>
+                </span>
+              </label>
+              <label className="flex items-start gap-2.5 text-sm leading-5">
+                <input
+                  type="checkbox"
+                  name="favoriteAddress"
+                  value="1"
+                  checked={favoriteAddress || selectedIsFavorite}
+                  onChange={(e) => setFavoriteAddress(e.target.checked)}
+                  className="mt-1"
+                />
+                <span className="flex items-start gap-1.5">
+                  <Star
+                    size={14}
+                    className={
+                      favoriteAddress || selectedIsFavorite
+                        ? "mt-0.5 shrink-0 fill-[var(--ember)] text-[var(--ember)]"
+                        : "mt-0.5 shrink-0 text-[var(--faint)]"
+                    }
+                    aria-hidden
+                  />
+                  <span>
+                    <span className="font-semibold text-[var(--paper)]">Mark as favorite</span>
+                    <span className="muted block text-xs leading-4">
+                      Pin it to the top of your places for one-tap reuse.
+                    </span>
+                  </span>
+                </span>
+              </label>
+              {!saveAddress ? <input type="hidden" name="saveAddress" value="0" /> : null}
+            </div>
           </div>
         )}
       </fieldset>

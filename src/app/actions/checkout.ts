@@ -16,6 +16,7 @@ import { flatDeliveryFeeCentavos } from "@/domain/delivery-fee";
 import { computeLoyaltyQuote } from "@/domain/loyalty";
 import { resolveOnlinePaymentOptions } from "@/domain/payment-options";
 import { getPaymentAdapter, appUrl } from "@/domain/payments";
+import { rememberSavedAddress } from "@/lib/saved-addresses";
 
 const checkoutSchema = z.object({
   contactName: z.string().trim().min(2, "Name is required").max(80),
@@ -330,6 +331,28 @@ export async function placeOrder(
 
     await clearCart();
     await rememberOrder(order.code, order.accessToken);
+
+    if (data.fulfillment === "delivery" && data.deliveryAddress) {
+      const wantsSave = String(formData.get("saveAddress") ?? "1") !== "0";
+      const wantsFavorite = String(formData.get("favoriteAddress") || "") === "1";
+      if (wantsSave || wantsFavorite) {
+        await rememberSavedAddress({
+          address: data.deliveryAddress,
+          instructions: data.deliveryInstructions || "",
+          favorite: wantsFavorite,
+          label: wantsFavorite ? "Favorite" : "",
+        });
+      }
+      if (user?.id) {
+        await db.customer.updateMany({
+          where: { userId: user.id },
+          data: {
+            addressLine: data.deliveryAddress.slice(0, 300),
+            deliveryInstructions: (data.deliveryInstructions || "").slice(0, 400),
+          },
+        });
+      }
+    }
 
     if (started.redirectUrl) {
       redirect(started.redirectUrl);

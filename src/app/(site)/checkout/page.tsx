@@ -14,6 +14,12 @@ import { db } from "@/lib/db";
 import { applyVat, formatPeso } from "@/lib/money";
 import { vatOf } from "@/lib/settings";
 import { formatDateTime, formatDay } from "@/lib/time";
+import {
+  composeCustomerAddress,
+  mergeAddressLists,
+  readSavedAddresses,
+  type SavedAddress,
+} from "@/lib/saved-addresses";
 import { BasketLines, BasketTotals } from "@/components/basket-lines";
 import { CheckoutForm } from "@/components/checkout-form";
 import { Card, Eyebrow, Notice } from "@/components/ui";
@@ -60,6 +66,25 @@ export default async function CheckoutPage() {
   const memberCustomer = user
     ? await db.customer.findUnique({ where: { userId: user.id } })
     : null;
+  const cookiePlaces = await readSavedAddresses();
+  const customerPlace = memberCustomer
+    ? composeCustomerAddress(memberCustomer)
+    : null;
+  const fromCustomer: SavedAddress[] = customerPlace
+    ? [
+        {
+          id: "customer-default",
+          address: customerPlace.address,
+          instructions: customerPlace.instructions,
+          favorite: true,
+          lastUsedAt: Date.now(),
+          label: "Saved on your account",
+        },
+      ]
+    : [];
+  const savedAddresses = mergeAddressLists(cookiePlaces, fromCustomer);
+  const defaultPlace = savedAddresses.find((p) => p.favorite) ?? savedAddresses[0];
+
   const cartProductQty = basket.lines.reduce((s, l) => s + l.qty, 0);
   const productSubtotal = basket.lines.reduce((s, l) => s + l.lineTotalCentavos, 0);
   const loyalty = computeLoyaltyQuote({
@@ -151,6 +176,9 @@ export default async function CheckoutPage() {
             defaultName={user?.name}
             defaultPhone={user?.phone ?? undefined}
             defaultEmail={user?.email}
+            savedAddresses={savedAddresses}
+            defaultDeliveryAddress={defaultPlace?.address ?? ""}
+            defaultDeliveryInstructions={defaultPlace?.instructions ?? ""}
           />
         </div>
       </div>
