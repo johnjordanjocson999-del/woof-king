@@ -9,6 +9,7 @@ import { formatDay } from "@/lib/time";
 import { Card, Eyebrow, Notice } from "@/components/ui";
 import { SubmitButton } from "@/components/form";
 import { AccountOrderHistory } from "@/components/account-order-history";
+import { InstallAppButton } from "@/components/install-app";
 
 export const metadata: Metadata = { title: "Your account" };
 
@@ -77,6 +78,16 @@ export default async function AccountPage() {
           in the header to manage the desk.
         </Notice>
       ) : null}
+
+      <Card className="flex flex-wrap items-center justify-between gap-4 p-5">
+        <div className="grid gap-1">
+          <p className="font-display text-xl leading-tight">Install Woof King</p>
+          <p className="muted text-sm leading-6">
+            Put the bakery on your phone home screen or open it like an app on your computer.
+          </p>
+        </div>
+        <InstallAppButton variant="primary" label="Get the app" />
+      </Card>
 
       {settings.loyaltyEnabled ? (
         <section className="grid gap-4">

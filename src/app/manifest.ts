@@ -22,14 +22,13 @@ export default function manifest(): MetadataRoute.Manifest {
     dir: "ltr",
     icons: [
       {
-        // Cache-bust so reinstalled / refreshed PWAs drop the old yellow head tile.
-        src: "/brand/icon-192.png?v=sticker3",
+        src: "/brand/icon-192.png",
         sizes: "192x192",
         type: "image/png",
         purpose: "any",
       },
       {
-        src: "/brand/icon-512.png?v=sticker3",
+        src: "/brand/icon-512.png",
         sizes: "512x512",
         type: "image/png",
         purpose: "any",

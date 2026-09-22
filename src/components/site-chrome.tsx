@@ -69,7 +69,7 @@ export function SiteHeader({
               Admin
             </Link>
           ) : null}
-          <InstallAppButton variant="ghost" compact label="App" />
+          <InstallAppButton variant="solid" compact label="Get app" />
         </div>
       </div>
 
@@ -95,7 +95,7 @@ export function SiteHeader({
           <Link href={signedIn ? "/account" : "/login"} className="btn btn-ghost btn-sm">
             {signedIn ? "Account" : "Sign in"}
           </Link>
-          <InstallAppButton variant="ghost" compact />
+          <InstallAppButton variant="primary" compact label="Get the app" />
           {showAdmin ? (
             <Link href="/admin" className="btn btn-solid btn-sm">
               Admin
