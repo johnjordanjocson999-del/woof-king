@@ -1,12 +1,22 @@
 /* Woof King service worker — installability + light offline shell. */
-const CACHE = "woof-king-v3";
-const PRECACHE = ["/", "/menu", "/brand/icon-192.png", "/brand/icon-512.png"];
+const CACHE = "woof-king-v4";
+const PRECACHE = ["/brand/icon-192.png", "/brand/icon-512.png", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(CACHE)
-      .then((cache) => cache.addAll(PRECACHE))
+      .then((cache) =>
+        // Never use addAll on HTML — a cold-start 500 would abort SW install
+        // and kill the installable-app prompt.
+        Promise.all(
+          PRECACHE.map((url) =>
+            cache.add(url).catch(() => {
+              /* ignore missing icon / network blip */
+            }),
+          ),
+        ),
+      )
       .then(() => self.skipWaiting()),
   );
 });
@@ -29,8 +39,7 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  // Never intercept admin, APIs, uploads, or Next image optimizer / hashed assets —
-  // let the browser HTTP cache handle those (SW was causing scroll/nav hitch).
+  // Never intercept admin, APIs, uploads, or Next assets.
   if (
     url.pathname.startsWith("/admin") ||
     url.pathname.startsWith("/api") ||
@@ -40,22 +49,25 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Navigations: network first, fall back to cache (offline menu/home).
+  // Navigations: network first; cache successful HTML for offline shell.
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE).then((cache) => cache.put(request, copy));
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE).then((cache) => cache.put(request, copy));
+          }
           return response;
         })
-        .catch(() => caches.match(request).then((hit) => hit || caches.match("/"))),
+        .catch(() =>
+          caches.match(request).then((hit) => hit || caches.match("/") || Response.error()),
+        ),
     );
     return;
   }
 
-  // Brand icons only — small, useful offline for install.
-  if (url.pathname.startsWith("/brand/")) {
+  if (url.pathname.startsWith("/brand/") || url.pathname === "/manifest.webmanifest") {
     event.respondWith(
       caches.match(request).then(
         (hit) =>

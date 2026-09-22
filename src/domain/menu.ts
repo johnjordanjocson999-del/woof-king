@@ -35,6 +35,31 @@ export type StorefrontProduct = Pick<Product, keyof typeof productSelect>;
 export type MenuItemWithProduct = MenuItem & { product: StorefrontProduct };
 export type ActiveMenu = WeeklyMenu & { items: MenuItemWithProduct[] };
 
+function asDate(value: Date | string): Date {
+  return value instanceof Date ? value : new Date(value);
+}
+
+/** `unstable_cache` JSON-encodes Dates as strings — revive so .getTime() works. */
+function reviveActiveMenu(menu: ActiveMenu | null): ActiveMenu | null {
+  if (!menu) return null;
+  return {
+    ...menu,
+    orderOpensAt: asDate(menu.orderOpensAt),
+    cutoffAt: asDate(menu.cutoffAt),
+    pickupDate: asDate(menu.pickupDate),
+    publishedAt: menu.publishedAt ? asDate(menu.publishedAt) : null,
+    createdAt: asDate(menu.createdAt),
+    items: menu.items.map((item) => ({
+      ...item,
+      product: {
+        ...item.product,
+        createdAt: asDate(item.product.createdAt),
+        updatedAt: asDate(item.product.updatedAt),
+      },
+    })),
+  };
+}
+
 async function loadActiveMenu(nowMs: number): Promise<ActiveMenu | null> {
   const now = new Date(nowMs);
   const include = {
@@ -65,10 +90,11 @@ async function loadActiveMenu(nowMs: number): Promise<ActiveMenu | null> {
  */
 export const getActiveMenu = cache(async (now = new Date()): Promise<ActiveMenu | null> => {
   const bucket = Math.floor(now.getTime() / 30_000);
-  return unstable_cache(() => loadActiveMenu(now.getTime()), ["wk-active-menu", String(bucket)], {
+  const cached = await unstable_cache(() => loadActiveMenu(now.getTime()), ["wk-active-menu", String(bucket)], {
     revalidate: 30,
     tags: ["menu"],
   })();
+  return reviveActiveMenu(cached);
 });
 
 export function remainingFor(item: MenuItem): number | null {

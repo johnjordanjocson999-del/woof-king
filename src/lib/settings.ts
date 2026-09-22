@@ -4,6 +4,14 @@ import { db } from "@/lib/db";
 import { parsePrepWeekdays, type WeeklySchedule } from "@/lib/time";
 import type { Settings } from "@prisma/client";
 
+/** `unstable_cache` JSON-serializes Dates to strings — restore them after a hit. */
+function reviveSettings(row: Settings): Settings {
+  return {
+    ...row,
+    updatedAt: new Date(row.updatedAt),
+  };
+}
+
 async function loadSettings(): Promise<Settings> {
   const existing = await db.settings.findUnique({ where: { id: "singleton" } });
   if (existing) return existing;
@@ -14,12 +22,13 @@ async function loadSettings(): Promise<Settings> {
  * Deduped within a request + cached across requests (60s).
  * Storefront layout hits this on every navigation — must stay cheap.
  */
-export const getSettings = cache(async (): Promise<Settings> =>
-  unstable_cache(loadSettings, ["wk-settings"], {
+export const getSettings = cache(async (): Promise<Settings> => {
+  const row = await unstable_cache(loadSettings, ["wk-settings"], {
     revalidate: 60,
     tags: ["settings"],
-  })(),
-);
+  })();
+  return reviveSettings(row);
+});
 
 export function scheduleOf(settings: Settings): WeeklySchedule {
   return {
