@@ -1,0 +1,892 @@
+@import "tailwindcss";
+
+/*
+  Honey-Cocoa.
+
+  The palette is lifted off the logo: the pup's outline brown becomes the canvas
+  and his crown becomes the only light source, so the mark reads as part of the
+  page instead of a sticker dropped onto it. Hex values come from
+  src/lib/brand.ts and are injected onto <html> by the root layout; the values
+  below are fallbacks so the page still renders if that ever fails.
+*/
+
+:root {
+  --ink: #20140a;
+  --surface: #2e1d0f;
+  --surface-2: #3c2714;
+  --paper: #fdf2d8;
+  --paper-solid: #fbefcd;
+  --muted: #cbaa7c;
+  --faint: #94724c;
+  --ember: #ffc209;
+  --ember-glow: #ffd75e;
+  --ember-deep: #c98a00;
+  --on-ember: #3b231f;
+  --crust: #a3612c;
+  --wheat: #f0dca4;
+  --sage: #7e8a5f;
+  --bowl: #3e86b5;
+  --danger: #e2503c;
+  --success: #7fa05c;
+  --line: rgba(253, 242, 216, 0.13);
+  --line-strong: rgba(253, 242, 216, 0.24);
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+}
+
+@theme inline {
+  --color-ink: var(--ink);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-paper: var(--paper);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-ember: var(--ember);
+  --color-ember-glow: var(--ember-glow);
+  --color-crust: var(--crust);
+  --color-wheat: var(--wheat);
+  --color-sage: var(--sage);
+  --color-bowl: var(--bowl);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --color-line: var(--line);
+
+  --font-display: var(--font-display);
+  --font-sans: var(--font-body);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--ink);
+  color-scheme: dark;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  font-size: 1rem;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
+}
+
+/* Hide browser chrome affordances when running as an installed app. */
+@media (display-mode: standalone) {
+  .skip-link:not(:focus) {
+    display: none;
+  }
+}
+
+h1,
+h2,
+h3,
+h4,
+.font-display {
+  font-family: var(--font-display), Georgia, "Times New Roman", serif;
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  line-height: 1.05;
+}
+
+a {
+  color: inherit;
+}
+
+/* Numbers must never shift width: prices in a column, a live countdown. */
+.tnum,
+.price,
+time {
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ember-glow);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+::selection {
+  background: var(--ember);
+  color: var(--on-ember);
+}
+
+/* ---------------------------------------------------------------- texture */
+
+/*
+  A single tiling grain over the whole page. Flat dark backgrounds band badly on
+  cheap phone panels, and the grain both hides that and does most of the work of
+  making the palette feel like film rather than a dark-mode toggle.
+*/
+.grain::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.045;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* The light source. Sits behind hero art and product photos. */
+.ember-glow {
+  position: relative;
+}
+
+.ember-glow::before {
+  content: "";
+  position: absolute;
+  inset: -18%;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    60% 55% at 70% 25%,
+    color-mix(in oklab, var(--ember) 32%, transparent),
+    transparent 70%
+  );
+  filter: blur(36px);
+}
+
+/* ------------------------------------------------------------------- brand */
+
+/*
+  The pup is outlined in almost exactly the cocoa the page is painted in, so on
+  the dark canvas his silhouette would dissolve into it. A tight cream rim gives
+  the edge back, and a wide cast in crown gold makes the light on the page look
+  like it comes from the logo. This is what lets the mark sit in the design
+  rather than on it, and it is why the logo needs no white sticker keyline.
+*/
+.mascot-lift {
+  filter: drop-shadow(0 0 1px color-mix(in oklab, var(--paper) 50%, transparent))
+    drop-shadow(0 1px 2px color-mix(in oklab, var(--paper) 18%, transparent))
+    drop-shadow(0 8px 22px color-mix(in oklab, var(--ember) 28%, transparent));
+}
+
+/* The gold tile the logo is presented on across the brand sheet. */
+.brand-disc {
+  background: radial-gradient(
+    circle at 50% 36%,
+    var(--ember-glow),
+    var(--ember) 68%,
+    var(--ember-deep)
+  );
+}
+
+/* ------------------------------------------------------------- structure */
+
+.shell {
+  width: 100%;
+  max-width: 76rem;
+  margin-inline: auto;
+  padding-inline: 1.25rem;
+}
+
+@media (min-width: 768px) {
+  .shell {
+    padding-inline: 2rem;
+  }
+}
+
+.hairline {
+  height: 1px;
+  border: 0;
+  margin: 0;
+  background: var(--line);
+}
+
+/* An eyebrow label: small, spaced, ember. Used above every section heading. */
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-body), sans-serif;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ember);
+}
+
+.eyebrow::before {
+  content: "";
+  width: 1.75rem;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.6;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
+
+/* The one bright section on the site, where the bakery's story is told. */
+.paper-section {
+  background: var(--paper-solid);
+  color: #3b231f;
+}
+
+.paper-section .eyebrow {
+  color: var(--crust);
+}
+
+.paper-section .muted {
+  color: #7a5a3c;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.faint {
+  color: var(--faint);
+}
+
+/* ---------------------------------------------------------------- controls */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0.625rem 1.35rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill, 999px);
+  font-family: var(--font-body), sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--ember);
+  color: var(--on-ember);
+  box-shadow: 0 8px 28px -10px color-mix(in oklab, var(--ember) 70%, transparent);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--ember-glow);
+  transform: translateY(-1px);
+}
+
+.btn-ghost {
+  background: transparent;
+  border-color: var(--line-strong);
+  color: var(--paper);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  border-color: var(--ember);
+  color: var(--ember-glow);
+}
+
+.btn-solid {
+  background: var(--surface-2);
+  border-color: var(--line);
+  color: var(--paper);
+}
+
+.btn-solid:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--surface-2) 70%, var(--ember) 12%);
+}
+
+.btn-danger {
+  background: transparent;
+  border-color: color-mix(in oklab, var(--danger) 55%, transparent);
+  color: var(--danger);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--danger) 16%, transparent);
+}
+
+.btn-sm {
+  min-height: 40px;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.85rem;
+}
+
+/* Quantity stepper. Both buttons stay 44px so a thumb never misses. */
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.stepper button {
+  min-width: 44px;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--paper);
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 140ms ease;
+}
+
+.stepper button:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--ember) 22%, transparent);
+}
+
+.stepper button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.stepper output,
+.stepper .qty {
+  min-width: 2.75rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.chip-ember {
+  border-color: color-mix(in oklab, var(--ember) 45%, transparent);
+  color: var(--ember-glow);
+}
+
+.chip-sage {
+  border-color: color-mix(in oklab, var(--sage) 50%, transparent);
+  color: color-mix(in oklab, var(--sage) 70%, var(--paper));
+}
+
+.chip-danger {
+  border-color: color-mix(in oklab, var(--danger) 50%, transparent);
+  color: var(--danger);
+}
+
+.chip-dot::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+/* ------------------------------------------------------------------ forms */
+
+label {
+  display: grid;
+  gap: 0.4rem;
+  align-items: start;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+label > input:not([type="checkbox"]):not([type="radio"]),
+label > select,
+label > textarea {
+  align-self: start;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.6rem 0.85rem;
+  font: inherit;
+  font-size: 0.95rem;
+  color: var(--paper);
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease;
+}
+
+textarea {
+  min-height: 6rem;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--faint);
+}
+
+input:hover,
+select:hover,
+textarea:hover {
+  border-color: var(--line-strong);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--ember);
+  outline: none;
+  background: color-mix(in oklab, var(--surface-2) 88%, var(--ember) 6%);
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  width: 1.35rem;
+  min-height: 1.35rem;
+  height: 1.35rem;
+  accent-color: var(--ember);
+}
+
+@media (max-width: 767px) {
+  input[type="checkbox"],
+  input[type="radio"] {
+    width: 1.5rem;
+    min-height: 1.5rem;
+    height: 1.5rem;
+  }
+
+  /* Easier tap rows in admin forms */
+  .admin-check-row,
+  label:has(> input[type="checkbox"]) {
+    min-height: 2.75rem;
+    align-items: center;
+  }
+}
+
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1.5 6 6.5l5-5' stroke='%23CBAA7C' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.85rem center;
+  padding-right: 2.25rem;
+}
+
+.field-error {
+  color: var(--danger);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+/*
+  Radio card, used for pickup-vs-delivery, time slots and payment method.
+  The whole card is the hit target, and :has() keeps the selected state in CSS
+  so these can stay server-rendered.
+*/
+.choice {
+  position: relative;
+  display: block;
+  padding: 0.9rem 1rem;
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-weight: 500;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease;
+}
+
+button.choice {
+  width: 100%;
+  min-height: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+.choice input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+}
+
+.choice:hover {
+  border-color: color-mix(in oklab, var(--ember) 40%, var(--line-strong));
+}
+
+.choice:has(input:checked),
+.choice.is-selected {
+  border-color: var(--ember);
+  background: color-mix(in oklab, var(--surface-2) 82%, var(--ember) 14%);
+}
+
+.choice:has(input:disabled) {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.choice:has(input:focus-visible) {
+  outline: 2px solid var(--ember-glow);
+  outline-offset: 2px;
+}
+
+/* ----------------------------------------------------------------- photos */
+
+.photo {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+}
+
+.photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.photo-zoom:hover img {
+  transform: scale(1.045);
+}
+
+.ratio-45 {
+  aspect-ratio: 4 / 5;
+}
+
+.ratio-11 {
+  aspect-ratio: 1 / 1;
+}
+
+.ratio-43 {
+  aspect-ratio: 4 / 3;
+}
+
+.ratio-169 {
+  aspect-ratio: 16 / 9;
+}
+
+/* --------------------------------------------------------------- motion */
+
+/*
+  Scroll reveal.
+
+  `.reveal` starts hidden only when scripting is enabled and the visitor has
+  not asked for reduced motion. RevealRoot adds `.is-in` once the element is
+  on screen. Soft navigations re-bind the observer via the pathname, and a
+  short safety timeout forces anything still pending visible so a missed
+  intersection can never leave the weekly menu blank.
+*/
+.reveal {
+  opacity: 1;
+}
+
+@media (scripting: enabled) and (prefers-reduced-motion: no-preference) {
+  .reveal:not(.is-in) {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  .reveal {
+    transition:
+      opacity 700ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .reveal.is-in {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .photo-zoom:hover img {
+    transform: none;
+  }
+}
+
+/*
+  Phones: drop GPU-heavy filters and scroll-reveal delays so images paint
+  immediately and FPS stays usable. Desktop keeps the fuller look.
+*/
+@media (max-width: 767px) {
+  .grain::after {
+    display: none;
+  }
+
+  .ember-glow::before {
+    inset: -8%;
+    filter: none;
+    opacity: 0.85;
+  }
+
+  .mascot-lift {
+    filter: none;
+  }
+
+  .photo img {
+    transition: none;
+  }
+
+  .photo-zoom:hover img {
+    transform: none;
+  }
+
+  .reveal,
+  .reveal:not(.is-in) {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  .shell {
+    padding-inline: max(1rem, env(safe-area-inset-left))
+      max(1rem, env(safe-area-inset-right));
+  }
+
+  /* Soft atmosphere — avoid fixed attachment (janks with sticky layers on iOS). */
+  body {
+    background-image: radial-gradient(
+      120% 60% at 50% -10%,
+      color-mix(in oklab, var(--ember) 9%, transparent),
+      transparent 55%
+    );
+    background-attachment: scroll;
+  }
+
+  /* Admin: skip expensive paint while off-screen cards scroll by. */
+  .admin-order-card {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 12rem;
+  }
+}
+
+/* ---------------------------------------------------------------- layout */
+
+/*
+  Weekly product listing.
+  Phone: full-width vertical editorial stack (easy to scan the whole week).
+  Desktop: three-column grid.
+*/
+.menu-list {
+  display: grid;
+  gap: 2.75rem;
+}
+
+@media (min-width: 640px) and (max-width: 1023px) {
+  .menu-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.75rem 1.25rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .menu-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.75rem;
+  }
+}
+
+/* Legacy horizontal rail — kept for any remaining uses; prefer .menu-list. */
+.rail {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  padding-bottom: 0.5rem;
+  margin-inline: -1.25rem;
+  padding-inline: 1.25rem;
+}
+
+.rail::-webkit-scrollbar {
+  display: none;
+}
+
+.rail > * {
+  flex: 0 0 82%;
+  scroll-snap-align: start;
+}
+
+@media (min-width: 640px) {
+  .rail > * {
+    flex-basis: 48%;
+  }
+}
+
+@media (min-width: 1024px) {
+  .rail {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.75rem;
+    overflow: visible;
+    margin-inline: 0;
+    padding-inline: 0;
+  }
+}
+
+.table-scroll {
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+th {
+  text-align: left;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+td {
+  padding: 0.7rem 0.75rem;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+
+tbody tr:hover {
+  background: color-mix(in oklab, var(--surface-2) 60%, transparent);
+}
+
+.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --------------------------------------------------------------- utility */
+
+.link-underline {
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklab, var(--ember) 60%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+
+.link-underline:hover {
+  color: var(--ember-glow);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Skip link, visible only when focused by keyboard. */
+.skip-link {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 100;
+  transform: translateY(-160%);
+  transition: transform 160ms ease;
+}
+
+.skip-link:focus-visible {
+  transform: none;
+}
+
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.pulse {
+  animation: pulse-soft 2.2s ease-in-out infinite;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: #fff;
+    color: #000;
+  }
+
+  .report-print {
+    background: #fff !important;
+  }
+
+  .report-print a {
+    text-decoration: none;
+    color: inherit;
+  }
+
+  /* Aesthetic receipt — fill the page for Save as PDF on phones. */
+  .receipt-print-root {
+    display: flex !important;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .receipt-sheet {
+    box-shadow: none !important;
+    max-width: 100% !important;
+    border-radius: 0 !important;
+    break-inside: avoid;
+  }
+
+  header,
+  footer,
+  .grain::after {
+    display: none !important;
+  }
+}

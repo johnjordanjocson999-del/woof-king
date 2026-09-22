@@ -1,0 +1,560 @@
+// Woof King bakery. SQLite for local running; switch `provider` to "postgresql"
+// and the same models deploy unchanged.
+//
+// Two conventions hold everywhere:
+//   * Money is an Int of centavos. Never a float.
+//   * Ingredient quantities are decimal *strings* parsed with decimal.js, because
+//     20.833 g of flour per cupcake must not drift.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// Single row, id = "singleton". Everything the owner can tune without code.
+model Settings {
+  id String @id @default("singleton")
+
+  bakeryName String @default("Woof King")
+  tagline    String @default("Wild yeast, long nights, Sunday bread.")
+
+  heroHeading     String @default("Bread worth waking up for.")
+  heroBody        String @default("A short menu, baked once a week. Order by Thursday, collect on Sunday while it is still warm.")
+  story           String @default("")
+  announcement    String @default("")
+  policies        String @default("")
+  cancellationPol String @default("")
+
+  contactEmail      String @default("justinemerano@gmail.com")
+  contactPhone      String @default("")
+  /// Landline / telephone (optional second number shown on the storefront).
+  contactTelephone  String @default("")
+  pickupAddress     String @default("")
+  instagramUrl  String @default("")
+  facebookUrl   String @default("")
+
+  logoPath String?
+  heroPath String?
+
+  // Weekly rhythm. Weekdays follow JS: 0 = Sunday ... 6 = Saturday.
+  cutoffWeekday Int    @default(4)
+  cutoffHour    Int    @default(23)
+  cutoffMinute  Int    @default(59)
+  prepWeekdays  String @default("5,6,0")
+  pickupWeekday Int    @default(0)
+
+  // Tax. Off until the owner is actually VAT registered.
+  vatRegistered Boolean @default(false)
+  vatMode       String  @default("none") // none | inclusive | exclusive
+  vatRateBps    Int     @default(1200)
+
+  // Payments.
+  paymentProvider    String  @default("manual") // manual | paymongo | mock
+  gcashName          String  @default("")
+  gcashNumber        String  @default("")
+  /// Static QR image for VYBE / InstaPay scan payments.
+  vybeQrPath         String  @default("/uploads/payments/vybe-qr.png")
+  /// Static QR image for MariBank scan payments.
+  maribankQrPath     String  @default("/uploads/payments/maribank-qr.png")
+  paymongoSecretKey  String?
+  paymongoWebhookKey String?
+  paymongoMethods    String  @default("gcash,card")
+  qrphEnabled        Boolean @default(false)
+  estimatedFeeBps    Int     @default(250)
+
+  /// Bakery coordinates kept for a future map / pin delivery feature.
+  bakeryLatitude           Float @default(13.9285)
+  bakeryLongitude          Float @default(121.425)
+  /// Flat delivery fee in centavos (5000 = ₱50). Per-km is unused for now.
+  deliveryBaseFeeCentavos  Int   @default(5000)
+  deliveryPerKmCentavos    Int   @default(0)
+
+  deliveryNote String @default("Delivery is Saturday and Sunday only: 9:00–11:00 and 15:00–18:00. A flat ₱50 fee is added to your order total.")
+
+  // Member loyalty (logged-in customers only).
+  loyaltyEnabled                     Boolean @default(true)
+  /// Lifetime product pieces needed to unlock the volume % discount.
+  loyaltyVolumeThreshold             Int     @default(10)
+  /// Volume discount in basis points (2000 = 20%).
+  loyaltyVolumeDiscountBps           Int     @default(2000)
+  /// Consecutive pickup weeks needed for the streak discount.
+  loyaltyStreakWeeks                 Int     @default(5)
+  /// Streak discount in basis points (1000 = 10%).
+  loyaltyStreakDiscountBps           Int     @default(1000)
+  /// Cashback earned per ₱100 of product spend, in centavos (e.g. 200 = ₱2).
+  loyaltyCashbackPer100Centavos      Int     @default(200)
+
+  updatedAt DateTime @updatedAt
+}
+
+/// Storefront / POS payment channels the owner can add, edit, or turn off.
+model PaymentOption {
+  id            String  @id @default(cuid())
+  slug          String  @unique
+  name          String
+  /// qr = scan + manual transfer | manual = account details only | cash = pay at pickup
+  type          String  @default("qr")
+  qrImagePath   String?
+  accountName   String  @default("")
+  accountNumber String  @default("")
+  instructions  String  @default("")
+  active        Boolean @default(true)
+  /// online | pos | both
+  availability  String  @default("online")
+  /// If true, only offered when fulfillment is pickup (e.g. cash).
+  pickupOnly    Boolean @default(false)
+  sortOrder     Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Staff and customer logins share one table; `role` separates them.
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  phone        String?
+  passwordHash String
+  role         String   @default("customer") // owner | staff | customer
+  createdAt    DateTime @default(now())
+
+  sessions Session[]
+  customer Customer?
+  orders   Order[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// The customer book. Reachable only from /admin, never from the storefront.
+model Customer {
+  id     String  @id @default(cuid())
+  userId String? @unique
+
+  name  String
+  phone String
+  email String?
+  notes String  @default("")
+
+  addressLine          String @default("")
+  barangay             String @default("")
+  city                 String @default("")
+  deliveryInstructions String @default("")
+
+  totalOrders        Int       @default(0)
+  totalSpentCentavos Int       @default(0)
+  lastOrderAt        DateTime?
+
+  /// Lifetime sellable pieces across paid orders (member loyalty).
+  lifetimeProductQty      Int     @default(0)
+  /// Current consecutive-week ordering streak (paid weeks).
+  weeklyOrderStreak       Int     @default(0)
+  /// Last streak week key, e.g. "2026-W39" (Manila ISO week of pickup).
+  lastStreakPickupWeekKey String?
+  /// Redeemable cashback balance in centavos.
+  cashbackBalanceCentavos Int     @default(0)
+
+  createdAt DateTime @default(now())
+
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  orders Order[]
+
+  @@index([phone])
+}
+
+model Product {
+  id          String @id @default(cuid())
+  slug        String @unique
+  name        String
+  description String @default("")
+  category    String @default("bread") // bread | pastry | cake | drink
+  allergens   String @default("") // comma separated
+
+  imagePath String?
+  focalX    Float   @default(0.5)
+  focalY    Float   @default(0.5)
+  /// 1 = normal cover crop; higher zooms into the focal point.
+  imageZoom Float   @default(1)
+
+  priceCentavos         Int    @default(0)
+  sellingUnit           String @default("piece")
+  piecesPerUnit         Int    @default(1)
+  packagingCostCentavos Int    @default(0)
+
+  storageNotes   String @default("")
+  shelfLifeNotes String @default("")
+
+  /// Finished goods sitting on the counter right now, in pieces.
+  counterStock Int     @default(0)
+  archived     Boolean @default(false)
+  /// Shown as a small best-seller tile on the phone home screen.
+  featured     Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  recipe     Recipe?
+  menuItems  MenuItem[]
+  orderItems OrderItem[]
+  batches    ProductionBatch[]
+  movements  StockMovement[]
+}
+
+model Ingredient {
+  id        String  @id @default(cuid())
+  name      String
+  photoPath String?
+
+  /// Everything is stored in exactly one of these. Flour is g, water is ml.
+  baseUnit String @default("g") // g | ml | piece
+
+  /// Label for how it is bought, plus how many base units that label holds.
+  /// "sack" + "25000" means one sack is 25 000 g.
+  purchaseUnit   String @default("kg")
+  purchaseToBase String @default("1000")
+
+  qtyOnHandBase        String @default("0")
+  costPerBaseCentavos  String @default("0")
+  reorderThresholdBase String @default("0")
+
+  supplier  String   @default("")
+  createdAt DateTime @default(now())
+
+  recipeLines   RecipeLine[]
+  purchaseItems PurchaseItem[]
+  movements     StockMovement[]
+}
+
+model Recipe {
+  id            String @id @default(cuid())
+  productId     String @unique
+  yieldPieces   Int    @default(1)
+  instructions  String @default("")
+  /// Oven and mixer time for one batch, used when overhead is allocated by hours.
+  ovenMinutes   Int    @default(0)
+  laborCentavos Int    @default(0)
+
+  updatedAt DateTime @updatedAt
+
+  product Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  lines   RecipeLine[]
+}
+
+model RecipeLine {
+  id           String @id @default(cuid())
+  recipeId     String
+  ingredientId String
+  /// Written in whatever unit the baker thinks in; converted on read.
+  qty          String @default("0")
+  unit         String @default("g")
+  kind         String @default("ingredient") // ingredient | packaging
+  position     Int    @default(0)
+
+  recipe     Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+
+  @@index([recipeId])
+}
+
+/// One rotation. Publishing is blocked unless it holds 3 to 5 items.
+model WeeklyMenu {
+  id     String @id @default(cuid())
+  title  String
+  status String @default("draft") // draft | published | closed
+
+  orderOpensAt DateTime
+  cutoffAt     DateTime
+  prepDates    String // comma separated ISO dates
+  pickupDate   DateTime
+
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  items  MenuItem[]
+  orders Order[]
+  deliveryWindows DeliveryWindow[]
+}
+
+model MenuItem {
+  id       String @id @default(cuid())
+  menuId   String
+  position Int    @default(0)
+
+  productId     String
+  priceCentavos Int
+  quantityLimit Int    @default(0) // 0 = no cap
+  soldCount     Int    @default(0)
+
+  menu    WeeklyMenu @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  product Product    @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  orderItems OrderItem[]
+
+  @@unique([menuId, productId])
+}
+
+model PickupSlot {
+  id       String  @id @default(cuid())
+  label    String
+  start    String // "08:00"
+  end      String // "10:00"
+  capacity Int     @default(10)
+  active   Boolean @default(true)
+  position Int     @default(0)
+
+  orders Order[]
+}
+
+/// A date + time window when the bakery is available to hand off a delivery.
+/// Admin sets these for the week; the customer picks one at checkout.
+model DeliveryWindow {
+  id     String  @id @default(cuid())
+  menuId String?
+
+  /// Calendar day the bakery can hand the order to the rider (Manila midnight).
+  date  DateTime
+  start String // "09:00"
+  end   String // "11:00"
+  label String @default("Delivery window")
+
+  capacity Int     @default(15)
+  active   Boolean @default(true)
+  position Int     @default(0)
+  notes    String  @default("")
+
+  createdAt DateTime @default(now())
+
+  menu   WeeklyMenu? @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  orders Order[]
+
+  @@index([menuId])
+  @@index([date])
+}
+
+model Order {
+  id          String @id @default(cuid())
+  code        String @unique
+  accessToken String @unique
+
+  customerId String?
+  userId     String?
+  menuId     String?
+
+  source      String @default("web") // web | counter
+  kind        String @default("preorder") // preorder | counter
+  fulfillment String @default("pickup") // pickup | delivery | walkin
+
+  fulfillmentStatus String @default("confirmed") // confirmed | preparing | ready | coordinating | completed | cancelled
+  paymentStatus     String @default("unpaid") // unpaid | pending | submitted | paid | failed | refunded
+
+  contactName  String
+  contactPhone String
+  contactEmail String?
+  notes        String  @default("")
+
+  pickupSlotId String?
+  pickupDate   DateTime
+
+  deliveryWindowId     String?
+  deliveryAddress      String  @default("")
+  deliveryInstructions String  @default("")
+  deliveryFeeCentavos  Int     @default(0)
+  deliveryDistanceKm   Float?
+
+  subtotalCentavos Int @default(0)
+  vatCentavos      Int @default(0)
+  discountCentavos Int @default(0)
+  /// Cashback redeemed on this order (part of discountCentavos).
+  cashbackAppliedCentavos Int @default(0)
+  /// Cashback that will be / was earned when paid.
+  cashbackEarnedCentavos  Int @default(0)
+  loyaltyNote      String @default("")
+  totalCentavos    Int @default(0)
+
+  vatModeSnapshot            String @default("none")
+  vatRateBpsSnapshot         Int    @default(0)
+  cancellationPolicySnapshot String @default("")
+
+  createdAt DateTime  @default(now())
+  paidAt    DateTime?
+
+  customer       Customer?       @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  user           User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  menu           WeeklyMenu?     @relation(fields: [menuId], references: [id], onDelete: SetNull)
+  pickupSlot     PickupSlot?     @relation(fields: [pickupSlotId], references: [id], onDelete: SetNull)
+  deliveryWindow DeliveryWindow? @relation(fields: [deliveryWindowId], references: [id], onDelete: SetNull)
+
+  items    OrderItem[]
+  payments Payment[]
+
+  @@index([pickupDate])
+  @@index([paymentStatus])
+}
+
+model OrderItem {
+  id         String  @id @default(cuid())
+  orderId    String
+  productId  String
+  menuItemId String?
+
+  nameSnapshot      String
+  quantity          Int
+  unitPriceCentavos Int
+  allergensSnapshot String @default("")
+
+  order    Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product  Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
+  menuItem MenuItem? @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+}
+
+model Payment {
+  id      String @id @default(cuid())
+  orderId String
+
+  provider String // manual | paymongo | mock | cash
+  method   String? // gcash | card | qrph | cash
+  status   String  @default("pending") // pending | submitted | paid | failed | refunded
+
+  amountCentavos Int
+
+  checkoutSessionId String?
+  providerPaymentId String?
+  checkoutUrl       String?
+
+  /// Manual GCash flow: the screenshot the customer uploads, then who accepted it.
+  proofPath         String?
+  referenceNote     String  @default("")
+  confirmedByUserId String?
+
+  isMock    Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  paidAt    DateTime?
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}
+
+/// Replay guard. A provider event is acted on exactly once.
+model WebhookEvent {
+  id         String   @id @default(cuid())
+  provider   String
+  eventId    String
+  orderId    String?
+  receivedAt DateTime @default(now())
+
+  @@unique([provider, eventId])
+}
+
+model Purchase {
+  id            String   @id @default(cuid())
+  supplier      String   @default("")
+  notes         String   @default("")
+  purchasedAt   DateTime @default(now())
+  totalCentavos Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  items PurchaseItem[]
+}
+
+model PurchaseItem {
+  id           String @id @default(cuid())
+  purchaseId   String
+  ingredientId String
+
+  /// As typed off the receipt: 2 "sack", 500 "g", 1.5 "L".
+  qty  String
+  unit String
+
+  /// Same amount converted into the ingredient's base unit at save time.
+  qtyBase           String
+  lineTotalCentavos Int
+
+  purchase   Purchase   @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+
+  @@index([purchaseId])
+}
+
+/// Recording a batch is the single moment ingredients leave stock.
+model ProductionBatch {
+  id        String @id @default(cuid())
+  productId String
+
+  batches                String @default("1") // 1.5 means one and a half recipes
+  yieldPieces            Int
+  wastePieces            Int    @default(0)
+  ingredientCostCentavos Int    @default(0)
+
+  /// Frozen copy of the recipe and costs used, so history never shifts.
+  recipeSnapshot String @default("{}")
+
+  notes       String   @default("")
+  producedAt  DateTime @default(now())
+  actorUserId String?
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([producedAt])
+}
+
+/// Append-only ledger. Every report is derived from these rows.
+model StockMovement {
+  id String   @id @default(cuid())
+  at DateTime @default(now())
+
+  /// purchase_received | production_consumption | finished_goods_produced
+  /// sale | waste | adjustment
+  type String
+
+  ingredientId String?
+  productId    String?
+
+  /// Signed. Negative removes from stock.
+  qtyBase          String
+  unitCostCentavos String?
+  reason           String  @default("")
+  refId            String?
+  actorUserId      String?
+
+  ingredient Ingredient? @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  product    Product?    @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([at])
+  @@index([type])
+}
+
+/// One row per calendar month, "2026-09".
+model Overhead {
+  id    String @id @default(cuid())
+  month String @unique
+
+  electricityCentavos Int @default(0)
+  gasCentavos         Int @default(0)
+  waterCentavos       Int @default(0)
+  rentCentavos        Int @default(0)
+  laborCentavos       Int @default(0)
+  otherCentavos       Int @default(0)
+
+  allocationBasis String @default("units") // units | hours
+  expectedUnits   Int    @default(0)
+  expectedHours   Int    @default(0)
+
+  notes String @default("")
+}
