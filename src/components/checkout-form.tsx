@@ -120,7 +120,7 @@ export function CheckoutForm({
 
       <fieldset className="grid gap-4">
         <legend className="font-display text-2xl">Your details</legend>
-        <div className="grid items-start gap-4 sm:grid-cols-2">
+        <div className="grid items-start gap-4 sm:grid-cols-2 sm:gap-x-5 sm:gap-y-4">
           <Field label="Full name" required error={state.fieldErrors?.contactName}>
             <input
               name="contactName"

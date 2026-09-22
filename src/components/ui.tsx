@@ -198,8 +198,8 @@ export function Field({
   className?: string;
 }) {
   return (
-    <label className={cn("grid items-start gap-1.5 content-start", className)}>
-      <span className="flex min-h-[1.25rem] items-baseline gap-2">
+    <label className={cn("grid gap-1.5 content-start", className)}>
+      <span className="flex min-h-[1.25rem] items-baseline gap-2 text-sm font-medium">
         {label}
         {required ? (
           <span aria-hidden className="text-[var(--ember)]">
@@ -209,10 +209,8 @@ export function Field({
           <span className="faint text-xs font-normal">optional</span>
         )}
       </span>
-      {hint ? <span className="faint min-h-[1.25rem] text-xs font-normal leading-5">{hint}</span> : (
-        <span className="min-h-[1.25rem]" aria-hidden />
-      )}
       {children}
+      {hint ? <span className="faint text-xs font-normal leading-5">{hint}</span> : null}
       {error ? <span className="field-error">{error}</span> : null}
     </label>
   );
