@@ -61,8 +61,8 @@ export function BasketPill({
         className={cn(
           "no-print fixed z-[60] inline-flex items-center rounded-full border",
           "border-[color-mix(in_oklab,var(--ember)_60%,transparent)]",
-          "bg-[color-mix(in_oklab,var(--ink)_88%,var(--surface)_70%)] shadow-[0_12px_32px_-10px_rgba(0,0,0,0.85)]",
-          "backdrop-blur-md active:scale-[0.97] md:hover:-translate-y-0.5 md:transition-transform",
+          "bg-[var(--ink)] shadow-[0_12px_32px_-10px_rgba(0,0,0,0.85)]",
+          "active:scale-[0.97]",
           // Compact on phone, original size on desktop
           "gap-2 py-2 pl-3 pr-2 md:min-h-12 md:gap-3 md:py-2.5 md:pl-4 md:pr-2.5",
           // Phone: clear of tab bar + sticky buy bars; desktop: classic corner
@@ -90,7 +90,7 @@ export function BasketPill({
             type="button"
             aria-label="Close basket"
             onClick={() => setOpen(false)}
-            className="absolute inset-0 bg-[rgba(6,5,4,0.78)] md:backdrop-blur-[3px]"
+            className="absolute inset-0 bg-[rgba(6,5,4,0.82)]"
           />
           <div
             id={panelId}

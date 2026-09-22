@@ -32,7 +32,15 @@ export function SiteHeader({
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 24);
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      window.requestAnimationFrame(() => {
+        setScrolled(window.scrollY > 24);
+        ticking = false;
+      });
+    };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
@@ -41,11 +49,11 @@ export function SiteHeader({
   return (
     <header
       className={cn(
-        "no-print sticky top-0 z-30 transition-colors duration-300",
-        "max-md:border-b max-md:border-[var(--line)] max-md:bg-[color-mix(in_oklab,var(--ink)_96%,transparent)]",
+        "no-print sticky top-0 z-30",
+        "max-md:border-b max-md:border-[var(--line)] max-md:bg-[var(--ink)]",
         scrolled
-          ? "md:border-b md:border-[var(--line)] md:bg-[color-mix(in_oklab,var(--ink)_82%,transparent)] md:backdrop-blur-md"
-          : "md:border-b md:border-transparent",
+          ? "md:border-b md:border-[var(--line)] md:bg-[var(--ink)]"
+          : "md:border-b md:border-transparent md:bg-transparent",
       )}
     >
       {/* Phone app bar */}

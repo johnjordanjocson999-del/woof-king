@@ -1,5 +1,5 @@
 /* Woof King service worker — installability + light offline shell. */
-const CACHE = "woof-king-v2";
+const CACHE = "woof-king-v3";
 const PRECACHE = ["/", "/menu", "/brand/icon-192.png", "/brand/icon-512.png"];
 
 self.addEventListener("install", (event) => {
@@ -29,11 +29,13 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  // Never cache admin, API-ish mutations, or uploads.
+  // Never intercept admin, APIs, uploads, or Next image optimizer / hashed assets —
+  // let the browser HTTP cache handle those (SW was causing scroll/nav hitch).
   if (
     url.pathname.startsWith("/admin") ||
     url.pathname.startsWith("/api") ||
-    url.pathname.startsWith("/uploads")
+    url.pathname.startsWith("/uploads") ||
+    url.pathname.startsWith("/_next/")
   ) {
     return;
   }
@@ -52,18 +54,20 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Static brand: network first so logo updates aren't stuck offline.
-  if (url.pathname.startsWith("/brand/") || url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/_next/image")) {
+  // Brand icons only — small, useful offline for install.
+  if (url.pathname.startsWith("/brand/")) {
     event.respondWith(
-      fetch(request)
-        .then((response) => {
-          if (response.ok) {
-            const copy = response.clone();
-            caches.open(CACHE).then((cache) => cache.put(request, copy));
-          }
-          return response;
-        })
-        .catch(() => caches.match(request).then((hit) => hit || Response.error())),
+      caches.match(request).then(
+        (hit) =>
+          hit ||
+          fetch(request).then((response) => {
+            if (response.ok) {
+              const copy = response.clone();
+              caches.open(CACHE).then((cache) => cache.put(request, copy));
+            }
+            return response;
+          }),
+      ),
     );
   }
 });

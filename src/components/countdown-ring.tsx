@@ -64,13 +64,24 @@ export function CountdownRing({
 
   useEffect(() => {
     const tick = () => {
+      if (typeof document !== "undefined" && document.hidden) return;
       const ms = Math.max(0, cutoffMs - Date.now());
       setRemainingMs(ms);
       setState(split(ms));
     };
     tick();
-    const id = window.setInterval(tick, 1000);
-    return () => window.clearInterval(id);
+    // Whole seconds only matter near cutoff; otherwise tick slowly.
+    const near =
+      cutoffMs - Date.now() < 48 * 60 * 60 * 1000; /* under 48h */
+    const id = window.setInterval(tick, near ? 1000 : 30_000);
+    const onVis = () => {
+      if (!document.hidden) tick();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVis);
+    };
   }, [cutoffMs]);
 
   const windowMs = Math.max(1, cutoffMs - openedMs);

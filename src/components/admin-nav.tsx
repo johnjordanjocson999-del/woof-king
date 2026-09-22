@@ -19,6 +19,7 @@ import {
   Wallet,
   LogOut,
   ChevronDown,
+  Printer,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { BrandLogo } from "@/components/brand-marks";
@@ -31,6 +32,7 @@ const PRIMARY = [
   { href: "/admin/payments", label: "Payments", icon: Wallet },
   { href: "/admin/products", label: "Products", icon: Package },
   { href: "/admin/menus", label: "Menu", icon: CalendarDays },
+  { href: "/admin/print/delivery-card", label: "Box QR", icon: Printer },
 ] as const;
 
 const MORE = [

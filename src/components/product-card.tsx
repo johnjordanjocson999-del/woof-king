@@ -37,7 +37,10 @@ export function ProductCard({
 
   return (
     <article
-      className={cn("reveal group grid content-start gap-3 md:gap-4", className)}
+      className={cn(
+        "menu-product-card reveal group grid content-start gap-3 md:gap-4",
+        className,
+      )}
       data-reveal-delay={revealDelay}
     >
       <Link
@@ -68,7 +71,7 @@ export function ProductCard({
               alt={product.name}
               fill
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 48vw, 360px"
-              className={cn("relative z-[1]", soldOut && "opacity-45 saturate-50")}
+              className={cn("relative z-[1]", soldOut && "opacity-45")}
               style={productImageStyle(product)}
             />
           ) : (

@@ -30,13 +30,18 @@ export default async function AdminDeliveryPage() {
 
   return (
     <div className="grid gap-8">
-      <header className="grid gap-2">
-        <Eyebrow>Fulfillment</Eyebrow>
-        <h1 className="text-[2.2rem] leading-[1]">Delivery windows</h1>
-        <p className="muted max-w-xl text-sm leading-6">
-          Standard availability is Saturday and Sunday only — 9:00–11:00 and 15:00–18:00. Publishing
-          a weekly menu creates these four slots automatically.
-        </p>
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div className="grid gap-2">
+          <Eyebrow>Fulfillment</Eyebrow>
+          <h1 className="text-[2.2rem] leading-[1]">Delivery windows</h1>
+          <p className="muted max-w-xl text-sm leading-6">
+            Standard availability is Saturday and Sunday only — 9:00–11:00 and 15:00–18:00. Publishing
+            a weekly menu creates these four slots automatically.
+          </p>
+        </div>
+        <a href="/admin/print/delivery-card" className="btn btn-solid btn-sm">
+          Print box cards
+        </a>
       </header>
 
       {activeMenu ? (

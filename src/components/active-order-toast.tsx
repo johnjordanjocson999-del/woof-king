@@ -75,11 +75,11 @@ export function ActiveOrderToast({ orders }: { orders: ActiveOrderNotice[] }) {
     >
       <div
         className={cn(
-          "pointer-events-auto w-full max-w-sm overflow-hidden rounded-2xl border shadow-[0_22px_50px_-24px_rgba(0,0,0,0.85)] backdrop-blur-md transition-all duration-300",
+          "pointer-events-auto w-full max-w-sm overflow-hidden rounded-2xl border shadow-[0_22px_50px_-24px_rgba(0,0,0,0.85)] transition-opacity duration-200",
           primary.urgency === "high"
-            ? "border-[color-mix(in_oklab,var(--ember)_55%,var(--line))] bg-[color-mix(in_oklab,var(--surface)_88%,var(--ember)_14%)]"
-            : "border-[var(--line)] bg-[color-mix(in_oklab,var(--ink)_92%,var(--surface)_80%)]",
-          entered ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0",
+            ? "border-[color-mix(in_oklab,var(--ember)_55%,var(--line))] bg-[var(--surface)]"
+            : "border-[var(--line)] bg-[var(--ink)]",
+          entered ? "opacity-100" : "opacity-0",
         )}
       >
         <div className="flex gap-3 p-3.5 pr-2.5">
@@ -91,7 +91,7 @@ export function ActiveOrderToast({ orders }: { orders: ActiveOrderNotice[] }) {
                 : "border border-[var(--line)] text-[var(--ember)]",
             )}
           >
-            <Bell size={18} aria-hidden className={primary.urgency === "high" ? "animate-pulse" : undefined} />
+            <Bell size={18} aria-hidden />
           </span>
 
           <div className="min-w-0 flex-1 grid gap-0.5">

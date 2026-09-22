@@ -52,14 +52,19 @@ export default async function AdminTodayPage() {
 
   return (
     <div className="grid gap-8">
-      <header className="grid gap-2">
-        <Eyebrow>Today</Eyebrow>
-        <h1 className="text-[2.2rem] leading-[1]">Bakehouse desk</h1>
-        <p className="muted text-sm">
-          {open
-            ? `Ordering open · closes in ${remaining.days}d ${remaining.hours}h ${remaining.minutes}m`
-            : `Ordering closed · next pickup ${formatDay(cycle.pickupDate)}`}
-        </p>
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div className="grid gap-2">
+          <Eyebrow>Today</Eyebrow>
+          <h1 className="text-[2.2rem] leading-[1]">Bakehouse desk</h1>
+          <p className="muted text-sm">
+            {open
+              ? `Ordering open · closes in ${remaining.days}d ${remaining.hours}h ${remaining.minutes}m`
+              : `Ordering closed · next pickup ${formatDay(cycle.pickupDate)}`}
+          </p>
+        </div>
+        <Link href="/admin/print/delivery-card" className="btn btn-solid btn-sm">
+          Print box QR cards
+        </Link>
       </header>
 
       <div className="grid gap-4 sm:grid-cols-3">

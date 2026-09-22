@@ -32,7 +32,7 @@ export function MenuProductFeed({
   return (
     <div className="grid gap-5">
       {/* Sub-tabs: phone only */}
-      <div className="sticky top-[3.75rem] z-20 -mx-1 bg-[color-mix(in_oklab,var(--ink)_92%,transparent)] py-2 backdrop-blur-sm md:hidden">
+      <div className="sticky top-[3.75rem] z-20 -mx-1 bg-[var(--ink)] py-2 md:hidden">
         <div
           role="tablist"
           aria-label="Menu sections"

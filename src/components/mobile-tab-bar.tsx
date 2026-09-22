@@ -57,7 +57,7 @@ export function MobileTabBar({
       aria-label="App"
       className={cn(
         "no-print fixed inset-x-0 bottom-0 z-40 md:hidden",
-        "border-t border-[var(--line)] bg-[color-mix(in_oklab,var(--ink)_96%,transparent)] backdrop-blur-md",
+        "border-t border-[var(--line)] bg-[var(--ink)]",
         "pb-[env(safe-area-inset-bottom)]",
       )}
     >

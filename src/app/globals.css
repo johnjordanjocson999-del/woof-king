@@ -127,13 +127,7 @@ time {
   making the palette feel like film rather than a dark-mode toggle.
 */
 .grain::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
-  opacity: 0.045;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  display: none;
 }
 
 /* The light source. Sits behind hero art and product photos. */
@@ -144,15 +138,15 @@ time {
 .ember-glow::before {
   content: "";
   position: absolute;
-  inset: -18%;
+  inset: -12%;
   z-index: 0;
   pointer-events: none;
   background: radial-gradient(
     60% 55% at 70% 25%,
-    color-mix(in oklab, var(--ember) 32%, transparent),
-    transparent 70%
+    color-mix(in oklab, var(--ember) 28%, transparent),
+    transparent 72%
   );
-  filter: blur(36px);
+  /* No CSS filter blur — soft gradient only (blur was a major scroll cost). */
 }
 
 /* ------------------------------------------------------------------- brand */
@@ -569,11 +563,21 @@ button.choice {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.photo-zoom:hover img {
-  transform: scale(1.045);
+@media (hover: hover) and (pointer: fine) {
+  .photo img {
+    transition: transform 400ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .photo-zoom:hover img {
+    transform: scale(1.03);
+  }
+}
+
+.menu-product-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 28rem;
 }
 
 .ratio-45 {
@@ -610,13 +614,13 @@ button.choice {
 @media (scripting: enabled) and (prefers-reduced-motion: no-preference) {
   .reveal:not(.is-in) {
     opacity: 0;
-    transform: translateY(18px);
+    transform: translateY(10px);
   }
 
   .reveal {
     transition:
-      opacity 700ms cubic-bezier(0.22, 1, 0.36, 1),
-      transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+      opacity 280ms ease-out,
+      transform 280ms ease-out;
   }
 
   .reveal.is-in {
@@ -863,6 +867,16 @@ tbody tr:hover {
 
   .report-print {
     background: #fff !important;
+  }
+
+  .box-card-print {
+    background: #fff !important;
+  }
+
+  .box-sticker {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    box-shadow: none !important;
   }
 
   .report-print a {
