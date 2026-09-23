@@ -244,9 +244,9 @@ export default async function HomePage() {
             <BrandLogo href={null} className="h-[140px] drop-shadow-none" />
             <Eyebrow>Our story</Eyebrow>
             <h2 className="text-[2.4rem] leading-[1.02] md:text-[3.2rem]">
-              Bake less.
+              Better Bites.
               <br />
-              Bake better.
+              Taste Woof King.
             </h2>
             <p className="muted whitespace-pre-line text-[1rem] leading-7">{settings.story}</p>
           </div>

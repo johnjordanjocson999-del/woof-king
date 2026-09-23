@@ -104,9 +104,9 @@ export function MobileHomePanel({
               id="mobile-story-heading"
               className="text-[1.85rem] leading-[1.05] text-[#3b231f]"
             >
-              Bake less.
+              Better Bites.
               <br />
-              Bake better.
+              Taste Woof King.
             </h2>
             <p className="text-[0.92rem] leading-7 text-[#7a5a3c]">{storyPreview}</p>
             {heroPath ? (
