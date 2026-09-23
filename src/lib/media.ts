@@ -5,14 +5,34 @@ import { mediaId } from "@/lib/ids";
 
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
-function blobConfigured(): boolean {
-  // After Storage → Blob is connected, Vercel injects BLOB_STORE_ID (OIDC)
-  // and/or BLOB_READ_WRITE_TOKEN. Either is enough on Vercel.
-  return Boolean(
-    process.env.BLOB_READ_WRITE_TOKEN ||
-      process.env.BLOB_STORE_ID ||
-      process.env.VERCEL_BLOB_READ_WRITE_TOKEN,
-  );
+/**
+ * Vercel lets you set a custom env prefix when creating a Blob store.
+ * That yields names like BLOB_WEBHOOK_PUBLIC_KEY_STORE_ID instead of BLOB_STORE_ID.
+ * Find whatever was actually injected.
+ */
+function resolveBlobCredentials(): { token?: string; storeId?: string } {
+  const env = process.env;
+  const token =
+    env.BLOB_READ_WRITE_TOKEN ||
+    env.VERCEL_BLOB_READ_WRITE_TOKEN ||
+    Object.entries(env).find(
+      ([key, value]) =>
+        Boolean(value) &&
+        key.includes("BLOB") &&
+        /READ_WRITE_TOKEN$/i.test(key),
+    )?.[1];
+
+  const storeId =
+    env.BLOB_STORE_ID ||
+    Object.entries(env).find(
+      ([key, value]) =>
+        Boolean(value) && key.includes("BLOB") && /STORE_ID$/i.test(key),
+    )?.[1];
+
+  return {
+    token: token || undefined,
+    storeId: storeId || undefined,
+  };
 }
 
 /**
@@ -20,7 +40,7 @@ function blobConfigured(): boolean {
  *
  * - Locally: writes under public/uploads.
  * - On Vercel: Vercel Blob (serverless disk is read-only).
- *   Product photos must use a Public Blob store so the storefront can show them.
+ *   Use a Public Blob store so storefront images load for everyone.
  */
 export async function saveUpload(
   file: File,
@@ -37,32 +57,34 @@ export async function saveUpload(
   const name = `${mediaId()}.${ext}`;
   const pathname = `uploads/${folder}/${name}`;
   const onVercel = Boolean(process.env.VERCEL);
+  const { token, storeId } = resolveBlobCredentials();
+  const canUseBlob = Boolean(token || storeId || onVercel);
 
-  if (onVercel || blobConfigured()) {
-    if (onVercel && !blobConfigured()) {
-      throw new Error(
-        "Blob is not available on this deploy yet. Open Vercel → Deployments → … on the latest Production deploy → Redeploy. Then try replacing the photo again.",
-      );
-    }
-
+  if (canUseBlob) {
     try {
-      // Storefront <Image> needs a publicly fetchable URL.
       const blob = await put(pathname, file, {
         access: "public",
         contentType: file.type,
         addRandomSuffix: false,
+        ...(token ? { token } : {}),
+        ...(storeId ? { storeId } : {}),
       });
       return { path: blob.url, mime: file.type, size: file.size };
     } catch (error) {
       const raw = error instanceof Error ? error.message : String(error);
-      if (/private/i.test(raw) && /public/i.test(raw)) {
+      if (/private/i.test(raw) && /public|access/i.test(raw)) {
         throw new Error(
-          "Your Blob store is Private. Create another Blob store with Public access (Vercel → Storage → Create → Blob → choose Public), connect it to woof-king, Redeploy, then replace the photo.",
+          "This Blob store is Private. Create a Public Blob store (Storage → Create → Blob → Public), leave the env prefix blank, connect woof-king, then Redeploy.",
         );
       }
-      if (/unauthorized|forbidden|401|403|token|credential|oidc|store/i.test(raw)) {
+      if (
+        /unauthorized|forbidden|401|403|token|credential|oidc|store|missing/i.test(
+          raw,
+        ) ||
+        (!token && !storeId)
+      ) {
         throw new Error(
-          "Blob credentials are missing on this deploy. In Vercel → Deployments, Redeploy Production (with the Blob store connected), wait until Ready, then try again.",
+          "Blob is connected but this deploy cannot see it yet. In Vercel → Settings → Environment Variables, confirm BLOB_STORE_ID or BLOB_READ_WRITE_TOKEN exists for Production. Then Deployments → … → Redeploy.",
         );
       }
       throw new Error(raw || "Photo upload failed.");
