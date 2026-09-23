@@ -33,6 +33,7 @@ export function ProductForm({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
+  const [messageTone, setMessageTone] = useState<"info" | "danger" | "success">("info");
   const [preview, setPreview] = useState(product?.imagePath ?? null);
   const [frame, setFrame] = useState<PhotoFrame>({
     x: product?.focalX ?? 0.5,
@@ -53,14 +54,19 @@ export function ProductForm({
         startTransition(async () => {
           const result = await upsertProduct(fd);
           setMessage(result.message);
-          if (result.ok && result.id && !product) {
-            router.push(`/admin/products/${result.id}`);
+          setMessageTone(result.ok ? "success" : "danger");
+          if (result.ok) {
+            if (result.id && !product) {
+              router.push(`/admin/products/${result.id}`);
+            } else {
+              router.refresh();
+            }
           }
         });
       }}
     >
       {product ? <input type="hidden" name="id" value={product.id} /> : null}
-      {message ? <Notice tone="info">{message}</Notice> : null}
+      {message ? <Notice tone={messageTone}>{message}</Notice> : null}
 
       <div className="grid gap-6 lg:grid-cols-[1fr_minmax(16rem,20rem)]">
         <div className="grid gap-4">
@@ -133,11 +139,18 @@ export function ProductForm({
         </div>
 
         <div className="grid content-start gap-3">
-          <Field label="Photo">
+          <Field
+            label={product?.imagePath ? "Replace photo" : "Photo"}
+            hint={
+              product?.imagePath
+                ? "Pick a new image to replace the current one. Leave empty to keep it."
+                : "JPG, PNG, WebP or GIF up to 8 MB."
+            }
+          >
             <input
               name="image"
               type="file"
-              accept="image/*"
+              accept="image/jpeg,image/png,image/webp,image/gif"
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (file) {

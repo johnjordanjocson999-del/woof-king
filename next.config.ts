@@ -7,6 +7,12 @@ const nextConfig: NextConfig = {
     formats: ["image/avif", "image/webp"],
     deviceSizes: [390, 640, 750, 1080, 1280, 1920],
     imageSizes: [64, 96, 128, 256, 384],
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "*.public.blob.vercel-storage.com",
+      },
+    ],
   },
   // Phone / tablet testing via LAN IP (http://192.168.x.x:3000).
   allowedDevOrigins: [
