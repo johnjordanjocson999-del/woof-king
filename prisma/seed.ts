@@ -550,6 +550,40 @@ const INGREDIENTS: IngredientSeed[] = [
     reorderThresholdBase: "40",
     supplier: "Divisoria packaging",
   },
+  // Sized sheets — one SKU per size/shape (count as pieces, not grams).
+  {
+    key: "baking-paper-10x30",
+    name: "Baking paper 10×30",
+    baseUnit: "piece",
+    purchaseUnit: "pack (50)",
+    purchaseToBase: "50",
+    costPerBaseCentavos: "120",
+    qtyOnHandBase: "100",
+    reorderThresholdBase: "30",
+    supplier: "Divisoria packaging",
+  },
+  {
+    key: "round-liner",
+    name: "Round liner (circle)",
+    baseUnit: "piece",
+    purchaseUnit: "pack (50)",
+    purchaseToBase: "50",
+    costPerBaseCentavos: "150",
+    qtyOnHandBase: "80",
+    reorderThresholdBase: "25",
+    supplier: "Divisoria packaging",
+  },
+  {
+    key: "wax-paper",
+    name: "Wax paper sheets",
+    baseUnit: "piece",
+    purchaseUnit: "pack (100)",
+    purchaseToBase: "100",
+    costPerBaseCentavos: "80",
+    qtyOnHandBase: "150",
+    reorderThresholdBase: "40",
+    supplier: "Divisoria packaging",
+  },
 ];
 
 interface RecipeLineSeed {

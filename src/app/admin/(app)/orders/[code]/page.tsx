@@ -2,12 +2,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { updateOrderStatus } from "@/app/actions/admin";
+import { updateOrderStatus, deleteOrder } from "@/app/actions/admin";
 import { confirmPaymentForm, rejectPaymentForm } from "@/app/actions/payment-review";
 import { formatPeso } from "@/lib/money";
 import { formatClock, formatDateTime, formatDay } from "@/lib/time";
 import { Card, Chip, Eyebrow, Notice } from "@/components/ui";
-import { SubmitButton } from "@/components/form";
+import { SubmitButton, ConfirmSubmit } from "@/components/form";
 
 export default async function AdminOrderDetailPage({
   params,
@@ -273,6 +273,17 @@ export default async function AdminOrderDetailPage({
               </form>
             ))}
         </div>
+        <p className="muted text-xs leading-5">
+          Moving to <strong>completed</strong> clears it from the active Orders board (still in
+          Finished). Delete removes it forever.
+        </p>
+        <form action={deleteOrder}>
+          <input type="hidden" name="orderId" value={order.id} />
+          <input type="hidden" name="returnTo" value="/admin/orders" />
+          <ConfirmSubmit message={`Permanently delete order ${order.code}? This cannot be undone.`}>
+            Delete order
+          </ConfirmSubmit>
+        </form>
       </Card>
 
       {latestPayment?.status === "submitted" ? (

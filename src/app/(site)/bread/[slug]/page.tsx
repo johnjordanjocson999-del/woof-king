@@ -126,7 +126,10 @@ export default async function BreadPage({ params }: { params: Promise<{ slug: st
 
             {open && menu ? (
               <p className="faint text-xs leading-5">
-                Order by {formatDateTime(menu.cutoffAt)}. Collect {formatDay(menu.pickupDate)}.
+                {menu.cutoffEnabled
+                  ? `Order by ${formatDateTime(menu.cutoffAt)}.`
+                  : "Orders stay open until the bakery closes them."}{" "}
+                Collect {formatDay(menu.pickupDate)}.
               </p>
             ) : null}
           </div>

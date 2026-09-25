@@ -128,7 +128,11 @@ export default async function HomePage() {
             <CountdownRing
               cutoffMs={cycle.cutoffAt.getTime()}
               openedMs={cycle.orderOpensAt.getTime()}
-              cutoffLabel={formatDateTime(cycle.cutoffAt)}
+              cutoffLabel={
+                menu?.cutoffEnabled === false
+                  ? "when the bakery closes orders"
+                  : formatDateTime(cycle.cutoffAt)
+              }
               initial={{
                 days: remaining.days,
                 hours: remaining.hours,
@@ -146,7 +150,11 @@ export default async function HomePage() {
         open={open}
         cycle={cycle}
         now={now}
-        cutoffLabel={formatDateTime(cycle.cutoffAt)}
+        cutoffLabel={
+          menu?.cutoffEnabled === false
+            ? "when the bakery closes orders"
+            : formatDateTime(cycle.cutoffAt)
+        }
         collectLabel={menu ? formatDay(menu.pickupDate) : formatDay(cycle.pickupDate)}
         announcement={settings.announcement}
         featured={featured}

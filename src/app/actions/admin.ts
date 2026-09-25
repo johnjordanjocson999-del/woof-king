@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath, updateTag } from "next/cache";
+import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireStaff } from "@/lib/auth";
 import { saveUpload } from "@/lib/media";
@@ -190,6 +191,60 @@ export async function publishMenu(menuId: string) : Promise<void> {
   return;
 }
 
+/** Turn the clock cutoff on or off for a published week. */
+export async function setMenuCutoffEnabled(formData: FormData): Promise<void> {
+  await requireStaff();
+  const menuId = String(formData.get("menuId") || "");
+  const enabled = String(formData.get("cutoffEnabled") || "") === "1";
+  if (!menuId) return;
+  const menu = await db.weeklyMenu.findUnique({ where: { id: menuId } });
+  if (!menu || menu.status !== "published") {
+    throw new Error("Only the live published week can change cutoff.");
+  }
+  await db.weeklyMenu.update({
+    where: { id: menuId },
+    data: { cutoffEnabled: enabled },
+  });
+  revalidateAdmin();
+}
+
+/** Stop taking online orders for this week (storefront closes immediately). */
+export async function closeMenuOrders(formData: FormData): Promise<void> {
+  await requireStaff();
+  const menuId = String(formData.get("menuId") || "");
+  if (!menuId) return;
+  const menu = await db.weeklyMenu.findUnique({ where: { id: menuId } });
+  if (!menu) throw new Error("Menu not found.");
+  if (menu.status !== "published") throw new Error("Only a published week can be closed.");
+  await db.weeklyMenu.update({
+    where: { id: menuId },
+    data: { status: "closed" },
+  });
+  revalidateAdmin();
+}
+
+/** Reopen a closed week as the live menu (closes any other published week). */
+export async function reopenMenuOrders(formData: FormData): Promise<void> {
+  await requireStaff();
+  const menuId = String(formData.get("menuId") || "");
+  if (!menuId) return;
+  const menu = await db.weeklyMenu.findUnique({ where: { id: menuId } });
+  if (!menu) throw new Error("Menu not found.");
+  if (menu.status !== "closed") throw new Error("Only a closed week can be reopened.");
+
+  await db.$transaction(async (tx) => {
+    await tx.weeklyMenu.updateMany({
+      where: { status: "published", id: { not: menuId } },
+      data: { status: "closed" },
+    });
+    await tx.weeklyMenu.update({
+      where: { id: menuId },
+      data: { status: "published" },
+    });
+  });
+  revalidateAdmin();
+}
+
 export async function updateOrderStatus(
   orderId: string,
   fulfillmentStatus: string,
@@ -200,6 +255,18 @@ export async function updateOrderStatus(
   await db.order.update({ where: { id: orderId }, data: { fulfillmentStatus } });
   revalidateFulfillment();
   return;
+}
+
+/** Permanently remove an order (and cascaded items/payments) to clean the dashboard. */
+export async function deleteOrder(formData: FormData): Promise<void> {
+  await requireStaff();
+  const orderId = String(formData.get("orderId") || "");
+  const returnTo = String(formData.get("returnTo") || "/admin/orders");
+  if (!orderId) return;
+  await db.order.delete({ where: { id: orderId } });
+  revalidateFulfillment();
+  revalidatePath("/admin/payments");
+  redirect(returnTo.startsWith("/admin") ? returnTo : "/admin/orders");
 }
 
 export async function updateCustomerNotes(customerId: string, formData: FormData) {

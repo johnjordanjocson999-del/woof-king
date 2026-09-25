@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireStaff } from "@/lib/auth";
 import { parsePesoInput } from "@/lib/money";
-import { receivePurchaseItem, consumeForProduction, sellFinishedGoods } from "@/domain/inventory";
+import { receivePurchaseItem, consumeForProduction, sellFinishedGoods, adjustIngredientQty } from "@/domain/inventory";
 import { orderCode, accessToken } from "@/lib/ids";
 import { manilaMonthKey } from "@/lib/time";
 
@@ -81,6 +81,38 @@ export async function quickRestockIngredient(formData: FormData): Promise<void> 
         qtyBase,
         lineTotalCentavos: lineTotal,
       },
+    });
+  });
+
+  revalidateAdmin();
+}
+
+/** Manual use / deduct (or add-back) without a purchase or bake. */
+export async function adjustIngredientStock(formData: FormData): Promise<void> {
+  const staff = await requireStaff();
+  const ingredientId = String(formData.get("ingredientId") || "");
+  const qtyRaw = String(formData.get("qty") || "").trim();
+  const direction = String(formData.get("direction") || "deduct"); // deduct | add
+  const reason = String(formData.get("reason") || "").trim().slice(0, 200);
+  if (!ingredientId) throw new Error("Pick an ingredient.");
+  const qty = Number(qtyRaw);
+  if (!qtyRaw || !Number.isFinite(qty) || qty <= 0) {
+    throw new Error("Enter how many to use or add.");
+  }
+
+  const ingredient = await db.ingredient.findUniqueOrThrow({ where: { id: ingredientId } });
+  const signed = direction === "add" ? String(qty) : String(-qty);
+
+  await db.$transaction(async (tx) => {
+    await adjustIngredientQty(tx, {
+      ingredient,
+      qtyBaseDelta: signed,
+      reason:
+        reason ||
+        (direction === "add"
+          ? `Manual add ${qty} ${ingredient.baseUnit}`
+          : `Used ${qty} ${ingredient.baseUnit}`),
+      actorUserId: staff.id,
     });
   });
 

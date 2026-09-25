@@ -85,7 +85,7 @@ export default async function CheckoutPage() {
         <Eyebrow>Checkout</Eyebrow>
         <h1 className="text-[2.35rem] leading-[1] md:text-[3.4rem]">Almost yours</h1>
         <p className="muted text-sm leading-6">
-          Orders close {formatDateTime(menu.cutoffAt)}. Pick a free pickup or delivery day on the
+          Orders close {menu.cutoffEnabled ? formatDateTime(menu.cutoffAt) : "when the bakery closes them"}. Pick a free pickup or delivery day on the
           calendar. Payment is taken in full now.
           {!user && settings.loyaltyEnabled ? (
             <>

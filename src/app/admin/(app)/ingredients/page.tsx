@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { upsertIngredient, quickRestockIngredient } from "@/app/actions/ops";
+import { upsertIngredient, quickRestockIngredient, adjustIngredientStock } from "@/app/actions/ops";
 import { formatBase, BASE_UNITS } from "@/lib/units";
 import { Card, Chip, Eyebrow, Field, EmptyState, Notice } from "@/components/ui";
 import { SubmitButton } from "@/components/form";
@@ -33,8 +33,10 @@ export default async function AdminIngredientsPage({
         <Eyebrow>Stock</Eyebrow>
         <h1 className="text-[2.2rem] leading-[1]">Ingredients</h1>
         <p className="muted max-w-xl text-sm leading-6">
-          See what is low, restock in one step, and edit how you buy each item. Stock goes up when
-          you restock; it goes down when you record a bake.
+          See what is low, restock or deduct in one step, and edit how you buy each item. For papers
+          and liners, use base unit <strong>Pieces</strong> and name by size (e.g. Baking paper
+          10×30, Round liner) so circle and rectangular loaves can each link their own sheet in
+          Recipes.
         </p>
       </header>
 
@@ -183,6 +185,39 @@ export default async function AdminIngredientsPage({
                     </form>
                   </details>
 
+                  {/* Use / deduct */}
+                  <details className="rounded-[var(--radius-md)] border border-[var(--line)]">
+                    <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold [&::-webkit-details-marker]:hidden">
+                      <span className="inline-flex items-center gap-2">
+                        <span className="text-[var(--danger)]">−</span>
+                        Use / deduct {i.name}
+                      </span>
+                    </summary>
+                    <form
+                      action={adjustIngredientStock}
+                      className="grid gap-3 border-t border-[var(--line)] px-4 py-4 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end"
+                    >
+                      <input type="hidden" name="ingredientId" value={i.id} />
+                      <input type="hidden" name="direction" value="deduct" />
+                      <Field label={`How many (${i.baseUnit})`} required>
+                        <input
+                          name="qty"
+                          type="number"
+                          min={0.01}
+                          step="any"
+                          required
+                          placeholder={unit === "piece" ? "e.g. 3 sheets" : "e.g. 100"}
+                        />
+                      </Field>
+                      <Field label="Note" className="sm:col-span-2">
+                        <input name="reason" placeholder="e.g. lined 6 round loaves" />
+                      </Field>
+                      <SubmitButton small variant="ghost">
+                        Deduct from stock
+                      </SubmitButton>
+                    </form>
+                  </details>
+
                   {/* Edit details */}
                   <details className="rounded-[var(--radius-md)] border border-[var(--line)]">
                     <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-[var(--muted)] [&::-webkit-details-marker]:hidden">
@@ -241,7 +276,8 @@ export default async function AdminIngredientsPage({
         <div className="grid gap-1">
           <h2 className="font-display text-xl">Add a new ingredient</h2>
           <p className="muted text-xs leading-5">
-            Start with name and how you buy it. You can restock after it appears in the list.
+            Start with name and how you buy it. For papers/liners: base unit Pieces, name by size
+            (e.g. Baking paper 10×30, Round liner), buy as pack, one pack = sheet count.
           </p>
         </div>
         <form action={upsertIngredient} className="grid gap-3 sm:grid-cols-2 sm:items-start">

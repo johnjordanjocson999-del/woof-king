@@ -279,6 +279,8 @@ model WeeklyMenu {
 
   orderOpensAt DateTime
   cutoffAt     DateTime
+  /// When false, customers can order past cutoffAt until the owner closes the week.
+  cutoffEnabled Boolean @default(true)
   prepDates    String // comma separated ISO dates
   pickupDate   DateTime
 

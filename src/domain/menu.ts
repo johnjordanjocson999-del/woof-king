@@ -109,7 +109,15 @@ export function isSoldOut(item: MenuItem): boolean {
 
 export function ordersOpen(menu: ActiveMenu | null, now = new Date()): boolean {
   if (!menu) return false;
-  return menu.status === "published" && now.getTime() <= menu.cutoffAt.getTime();
+  if (menu.status !== "published") return false;
+  if (!menu.cutoffEnabled) return true;
+  return now.getTime() <= menu.cutoffAt.getTime();
+}
+
+/** Storefront blurb for when ordering closes. Pass a pre-formatted cutoff time. */
+export function ordersCloseLabel(menu: ActiveMenu, formattedCutoff: string): string {
+  if (!menu.cutoffEnabled) return "Orders stay open until the bakery closes them.";
+  return `Ordering closes ${formattedCutoff}.`;
 }
 
 export function scarcityLabel(item: MenuItem): string | null {

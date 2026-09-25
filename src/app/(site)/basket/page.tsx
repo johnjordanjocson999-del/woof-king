@@ -44,7 +44,10 @@ export default async function BasketPage() {
         <h1 className="text-[2.35rem] leading-[1] md:text-[3.4rem]">Check it over</h1>
         {menu ? (
           <p className="muted text-sm leading-6">
-            Ordering closes {formatDateTime(menu.cutoffAt)}. Collection {formatDay(menu.pickupDate)}.
+            {menu.cutoffEnabled
+              ? `Ordering closes ${formatDateTime(menu.cutoffAt)}.`
+              : "Orders stay open until the bakery closes them."}{" "}
+            Collection {formatDay(menu.pickupDate)}.
           </p>
         ) : null}
       </header>

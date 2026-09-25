@@ -65,6 +65,50 @@ export async function receivePurchaseItem(
 }
 
 /**
+ * Manual stock change (use sheets, waste, count correction).
+ * Positive qtyBase adds; negative removes. Cost is left unchanged.
+ */
+export async function adjustIngredientQty(
+  tx: Tx,
+  input: {
+    ingredient: Ingredient;
+    /** Signed change in base units (e.g. "-3" for three sheets used). */
+    qtyBaseDelta: string;
+    reason: string;
+    actorUserId?: string;
+  },
+) {
+  const delta = new Decimal(input.qtyBaseDelta);
+  if (delta.isZero()) throw new Error("Enter a quantity.");
+
+  const onHand = new Decimal(input.ingredient.qtyOnHandBase);
+  const newOnHand = onHand.add(delta);
+  if (newOnHand.lt(0)) {
+    throw new Error(
+      `Not enough ${input.ingredient.name} on hand (${onHand.toString()} ${input.ingredient.baseUnit}).`,
+    );
+  }
+
+  await tx.ingredient.update({
+    where: { id: input.ingredient.id },
+    data: { qtyOnHandBase: newOnHand.toString() },
+  });
+
+  await tx.stockMovement.create({
+    data: {
+      type: "adjustment",
+      ingredientId: input.ingredient.id,
+      qtyBase: delta.toString(),
+      unitCostCentavos: null,
+      reason: input.reason || (delta.lt(0) ? "Used / deducted" : "Stock adjustment"),
+      actorUserId: input.actorUserId,
+    },
+  });
+
+  return { qtyOnHandBase: newOnHand.toString() };
+}
+
+/**
  * Deducts every recipe line for `batches` runs of the recipe, once.
  * Called only when a production batch is recorded — never on order creation.
  */

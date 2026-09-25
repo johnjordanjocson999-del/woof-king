@@ -67,7 +67,11 @@ export default async function MenuPage() {
           <CountdownRing
             cutoffMs={cycle.cutoffAt.getTime()}
             openedMs={cycle.orderOpensAt.getTime()}
-            cutoffLabel={formatDateTime(cycle.cutoffAt)}
+            cutoffLabel={
+              menu.cutoffEnabled
+                ? formatDateTime(cycle.cutoffAt)
+                : "when the bakery closes orders"
+            }
             size={186}
             initial={{
               days: remaining.days,
@@ -82,7 +86,11 @@ export default async function MenuPage() {
 
       <OrderWindowStrip
         open={open}
-        cutoffLabel={formatDateTime(menu.cutoffAt)}
+        cutoffLabel={
+          menu.cutoffEnabled
+            ? formatDateTime(menu.cutoffAt)
+            : "when the bakery closes orders"
+        }
         collectLabel={formatDay(menu.pickupDate)}
         className="md:hidden"
       />
