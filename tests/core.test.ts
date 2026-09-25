@@ -85,6 +85,9 @@ describe("costing — the cupcake question", () => {
       costPerBaseCentavos: "5",
       reorderThresholdBase: "0",
       supplier: "",
+      sheetWidth: "",
+      sheetHeight: "",
+      sheetUnit: "in",
       createdAt: new Date(),
     };
     const recipe = {

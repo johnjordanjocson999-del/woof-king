@@ -196,6 +196,12 @@ model Product {
   piecesPerUnit         Int    @default(1)
   packagingCostCentavos Int    @default(0)
 
+  /// Liner / paper cut size for sheet math (same unit as the paper ingredient).
+  /// Circle: use linerWidth as diameter; linerHeight ignored.
+  linerWidth  String @default("")
+  linerHeight String @default("")
+  linerShape  String @default("rect") // rect | circle
+
   storageNotes   String @default("")
   shelfLifeNotes String @default("")
 
@@ -233,6 +239,10 @@ model Ingredient {
   reorderThresholdBase String @default("0")
 
   supplier  String   @default("")
+  /// Full sheet size for paper / wax / liners (count stock is still in sheets = pieces).
+  sheetWidth  String @default("")
+  sheetHeight String @default("")
+  sheetUnit   String @default("in") // in | cm
   createdAt DateTime @default(now())
 
   recipeLines   RecipeLine[]

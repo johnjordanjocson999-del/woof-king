@@ -26,6 +26,9 @@ interface IngredientSeed {
   qtyOnHandBase: string;
   reorderThresholdBase: string;
   supplier: string;
+  sheetWidth?: string;
+  sheetHeight?: string;
+  sheetUnit?: string;
 }
 
 const INGREDIENTS: IngredientSeed[] = [
@@ -561,6 +564,9 @@ const INGREDIENTS: IngredientSeed[] = [
     qtyOnHandBase: "100",
     reorderThresholdBase: "30",
     supplier: "Divisoria packaging",
+    sheetWidth: "10",
+    sheetHeight: "30",
+    sheetUnit: "in",
   },
   {
     key: "round-liner",
@@ -572,6 +578,9 @@ const INGREDIENTS: IngredientSeed[] = [
     qtyOnHandBase: "80",
     reorderThresholdBase: "25",
     supplier: "Divisoria packaging",
+    sheetWidth: "12",
+    sheetHeight: "12",
+    sheetUnit: "in",
   },
   {
     key: "wax-paper",
@@ -583,6 +592,9 @@ const INGREDIENTS: IngredientSeed[] = [
     qtyOnHandBase: "150",
     reorderThresholdBase: "40",
     supplier: "Divisoria packaging",
+    sheetWidth: "12",
+    sheetHeight: "12",
+    sheetUnit: "in",
   },
 ];
 
@@ -1299,6 +1311,9 @@ async function main() {
         qtyOnHandBase: seed.qtyOnHandBase,
         reorderThresholdBase: seed.reorderThresholdBase,
         supplier: seed.supplier,
+        sheetWidth: seed.sheetWidth ?? "",
+        sheetHeight: seed.sheetHeight ?? "",
+        sheetUnit: seed.sheetUnit ?? "in",
       },
     });
     ingredientIds.set(seed.key, created.id);

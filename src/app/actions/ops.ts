@@ -25,6 +25,11 @@ export async function upsertIngredient(formData: FormData) : Promise<void> {
     purchaseToBase: String(formData.get("purchaseToBase") || "1000"),
     reorderThresholdBase: String(formData.get("reorderThresholdBase") || "0"),
     supplier: String(formData.get("supplier") || ""),
+    sheetWidth: String(formData.get("sheetWidth") || "").trim().slice(0, 20),
+    sheetHeight: String(formData.get("sheetHeight") || "").trim().slice(0, 20),
+    sheetUnit: ["in", "cm"].includes(String(formData.get("sheetUnit") || ""))
+      ? String(formData.get("sheetUnit"))
+      : "in",
   };
 
   if (id) {
@@ -116,6 +121,22 @@ export async function adjustIngredientStock(formData: FormData): Promise<void> {
     });
   });
 
+  revalidateAdmin();
+}
+
+/** Save liner cut size onto a product (used by the sheet calculator). */
+export async function saveProductLinerSize(formData: FormData): Promise<void> {
+  await requireStaff();
+  const productId = String(formData.get("productId") || "");
+  if (!productId) throw new Error("Pick a bread.");
+  const linerWidth = String(formData.get("linerWidth") || "").trim().slice(0, 20);
+  const linerHeight = String(formData.get("linerHeight") || "").trim().slice(0, 20);
+  const shape = String(formData.get("linerShape") || "rect");
+  const linerShape = shape === "circle" ? "circle" : "rect";
+  await db.product.update({
+    where: { id: productId },
+    data: { linerWidth, linerHeight, linerShape },
+  });
   revalidateAdmin();
 }
 
