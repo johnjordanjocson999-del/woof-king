@@ -29,8 +29,7 @@ const checkoutSchema = z.object({
   contactEmail: z.string().trim().email("Enter a valid email").optional().or(z.literal("")),
   notes: z.string().trim().max(500).optional(),
   fulfillment: z.enum(["pickup", "delivery"]),
-  pickupSlotId: z.string().optional(),
-  deliveryWindowId: z.string().optional(),
+  availabilitySlotId: z.string().optional(),
   deliveryAddress: z.string().trim().max(300).optional(),
   deliveryInstructions: z.string().trim().max(400).optional(),
   paymentMethod: z.string().trim().min(1, "Pick a payment method"),
@@ -42,8 +41,7 @@ export type CheckoutValues = {
   contactEmail: string;
   notes: string;
   fulfillment: "pickup" | "delivery";
-  pickupSlotId: string;
-  deliveryWindowId: string;
+  availabilitySlotId: string;
   deliveryAddress: string;
   deliveryInstructions: string;
   paymentMethod: string;
@@ -65,8 +63,7 @@ function readCheckoutValues(formData: FormData): CheckoutValues {
     contactEmail: String(formData.get("contactEmail") || ""),
     notes: String(formData.get("notes") || ""),
     fulfillment: fulfillmentRaw === "delivery" ? "delivery" : "pickup",
-    pickupSlotId: String(formData.get("pickupSlotId") || ""),
-    deliveryWindowId: String(formData.get("deliveryWindowId") || ""),
+    availabilitySlotId: String(formData.get("availabilitySlotId") || ""),
     deliveryAddress: String(formData.get("deliveryAddress") || ""),
     deliveryInstructions: String(formData.get("deliveryInstructions") || ""),
     paymentMethod: String(formData.get("paymentMethod") || ""),
@@ -110,8 +107,7 @@ export async function placeOrder(
     contactEmail: formData.get("contactEmail") || "",
     notes: formData.get("notes") || "",
     fulfillment: formData.get("fulfillment"),
-    pickupSlotId: formData.get("pickupSlotId") || undefined,
-    deliveryWindowId: formData.get("deliveryWindowId") || undefined,
+    availabilitySlotId: formData.get("availabilitySlotId") || undefined,
     deliveryAddress: formData.get("deliveryAddress") || "",
     deliveryInstructions: formData.get("deliveryInstructions") || "",
     paymentMethod: formData.get("paymentMethod"),
@@ -140,24 +136,16 @@ export async function placeOrder(
     });
   }
 
-  if (data.fulfillment === "pickup") {
-    if (!data.pickupSlotId) {
-      return failCheckout(formData, "Pick a Sunday collection slot.", {
-        pickupSlotId: "Required",
-      });
-    }
-  } else {
+  if (!data.availabilitySlotId) {
+    return failCheckout(formData, "Pick an available date and time on the calendar.", {
+      availabilitySlotId: "Required",
+    });
+  }
+
+  if (data.fulfillment === "delivery") {
     if (!data.deliveryAddress || data.deliveryAddress.length < 8) {
       return failCheckout(formData, "Delivery needs a full address.", {
         deliveryAddress: "Required for delivery",
-      });
-    }
-    const openWindows = await db.deliveryWindow.count({
-      where: { active: true, menuId: menu.id },
-    });
-    if (openWindows > 0 && !data.deliveryWindowId) {
-      return failCheckout(formData, "Pick an available delivery date and time.", {
-        deliveryWindowId: "Required",
       });
     }
   }
@@ -226,42 +214,31 @@ export async function placeOrder(
           }
         }
 
-        if (data.fulfillment === "pickup" && data.pickupSlotId) {
-          const slot = await tx.pickupSlot.findUnique({ where: { id: data.pickupSlotId } });
-          if (!slot || !slot.active) throw new Error("That collection slot is not available.");
-          const booked = await tx.order.count({
-            where: {
-              pickupSlotId: slot.id,
-              pickupDate: menu.pickupDate,
-              paymentStatus: { in: ["pending", "submitted", "paid"] },
-              fulfillmentStatus: { not: "cancelled" },
-            },
-          });
-          if (booked >= slot.capacity) {
-            throw new Error(`"${slot.label}" is full. Pick another slot.`);
-          }
+        if (!data.availabilitySlotId) {
+          throw new Error("Pick an available date and time.");
         }
-
-        if (data.fulfillment === "delivery" && data.deliveryWindowId) {
-          const window = await tx.deliveryWindow.findUnique({
-            where: { id: data.deliveryWindowId },
-          });
-          if (!window || !window.active) {
-            throw new Error("That delivery window is not available.");
-          }
-          if (window.menuId && window.menuId !== menu.id) {
-            throw new Error("That delivery window belongs to another week.");
-          }
-          const booked = await tx.order.count({
-            where: {
-              deliveryWindowId: window.id,
-              paymentStatus: { in: ["pending", "submitted", "paid"] },
-              fulfillmentStatus: { not: "cancelled" },
-            },
-          });
-          if (booked >= window.capacity) {
-            throw new Error(`"${window.label}" is full. Pick another window.`);
-          }
+        const slot = await tx.availabilitySlot.findUnique({
+          where: { id: data.availabilitySlotId },
+        });
+        if (!slot || !slot.active) {
+          throw new Error("That date and time is no longer available.");
+        }
+        if (slot.kind !== "both" && slot.kind !== data.fulfillment) {
+          throw new Error(
+            data.fulfillment === "pickup"
+              ? "That time is for delivery only. Pick another."
+              : "That time is for pickup only. Pick another.",
+          );
+        }
+        const booked = await tx.order.count({
+          where: {
+            availabilitySlotId: slot.id,
+            paymentStatus: { in: ["pending", "submitted", "paid"] },
+            fulfillmentStatus: { not: "cancelled" },
+          },
+        });
+        if (booked >= slot.capacity) {
+          throw new Error(`"${slot.label || `${slot.start}–${slot.end}`}" is full. Pick another time.`);
         }
 
         return tx.order.create({
@@ -281,12 +258,8 @@ export async function placeOrder(
             contactEmail: data.contactEmail || null,
             notes: data.notes || "",
             pickupDate: menu.pickupDate,
-            ...(data.fulfillment === "pickup" && data.pickupSlotId
-              ? { pickupSlot: { connect: { id: data.pickupSlotId } } }
-              : {}),
-            ...(data.fulfillment === "delivery" && data.deliveryWindowId
-              ? { deliveryWindow: { connect: { id: data.deliveryWindowId } } }
-              : {}),
+            fulfillmentDate: slot.date,
+            availabilitySlot: { connect: { id: slot.id } },
             deliveryAddress: data.fulfillment === "delivery" ? data.deliveryAddress! : "",
             deliveryInstructions:
               data.fulfillment === "delivery" ? data.deliveryInstructions || "" : "",

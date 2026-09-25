@@ -321,7 +321,7 @@ model PickupSlot {
 }
 
 /// A date + time window when the bakery is available to hand off a delivery.
-/// Admin sets these for the week; the customer picks one at checkout.
+/// Legacy — new bookings use AvailabilitySlot. Kept so old orders still resolve.
 model DeliveryWindow {
   id     String  @id @default(cuid())
   menuId String?
@@ -343,6 +343,33 @@ model DeliveryWindow {
   orders Order[]
 
   @@index([menuId])
+  @@index([date])
+}
+
+/// Owner-painted calendar: free days with time bands for pickup and/or delivery.
+/// Days without slots are order-only (customers can still buy while the menu is
+/// open, but cannot book handoff that day).
+model AvailabilitySlot {
+  id String @id @default(cuid())
+
+  /// Manila midnight for the free day.
+  date DateTime
+  /// pickup | delivery | both
+  kind String @default("both")
+
+  label    String  @default("")
+  start    String // "09:00"
+  end      String // "11:00"
+  capacity Int     @default(10)
+  active   Boolean @default(true)
+  position Int     @default(0)
+  notes    String  @default("")
+
+  createdAt DateTime @default(now())
+
+  orders Order[]
+
+  @@index([date, kind, active])
   @@index([date])
 }
 
@@ -368,7 +395,12 @@ model Order {
   notes        String  @default("")
 
   pickupSlotId String?
+  /// Menu-week anchor (usually Sunday) — used for loyalty / reports.
   pickupDate   DateTime
+
+  /// Actual handoff day chosen from the owner calendar (pickup or delivery).
+  fulfillmentDate    DateTime?
+  availabilitySlotId String?
 
   deliveryWindowId     String?
   deliveryAddress      String  @default("")
@@ -393,16 +425,18 @@ model Order {
   createdAt DateTime  @default(now())
   paidAt    DateTime?
 
-  customer       Customer?       @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  user           User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
-  menu           WeeklyMenu?     @relation(fields: [menuId], references: [id], onDelete: SetNull)
-  pickupSlot     PickupSlot?     @relation(fields: [pickupSlotId], references: [id], onDelete: SetNull)
-  deliveryWindow DeliveryWindow? @relation(fields: [deliveryWindowId], references: [id], onDelete: SetNull)
+  customer         Customer?          @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  user             User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+  menu             WeeklyMenu?        @relation(fields: [menuId], references: [id], onDelete: SetNull)
+  pickupSlot       PickupSlot?        @relation(fields: [pickupSlotId], references: [id], onDelete: SetNull)
+  deliveryWindow   DeliveryWindow?    @relation(fields: [deliveryWindowId], references: [id], onDelete: SetNull)
+  availabilitySlot AvailabilitySlot?  @relation(fields: [availabilitySlotId], references: [id], onDelete: SetNull)
 
   items    OrderItem[]
   payments Payment[]
 
   @@index([pickupDate])
+  @@index([fulfillmentDate])
   @@index([paymentStatus])
 }
 

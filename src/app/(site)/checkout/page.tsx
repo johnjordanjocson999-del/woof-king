@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSettings } from "@/lib/settings";
 import { getActiveMenu, ordersOpen } from "@/domain/menu";
-import { deliveryWindowsForMenu } from "@/domain/delivery";
+import { listAvailabilitySlots } from "@/domain/availability";
 import { readCart } from "@/lib/cart";
 import { isBasketPayable, resolveBasket } from "@/domain/basket";
 import { flatDeliveryFeeCentavos } from "@/domain/delivery-fee";
@@ -13,7 +13,7 @@ import { currentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { applyVat, formatPeso } from "@/lib/money";
 import { vatOf } from "@/lib/settings";
-import { formatDateTime, formatDay } from "@/lib/time";
+import { formatDateTime } from "@/lib/time";
 import {
   composeCustomerAddress,
   mergeAddressLists,
@@ -28,11 +28,12 @@ export const metadata: Metadata = { title: "Checkout" };
 
 export default async function CheckoutPage() {
   const now = new Date();
-  const [settings, menu, cart, user] = await Promise.all([
+  const [settings, menu, cart, user, availabilitySlots] = await Promise.all([
     getSettings(),
     getActiveMenu(now),
     readCart(),
     currentUser(),
+    listAvailabilitySlots({ from: now, onlyActive: true }),
   ]);
   const basket = resolveBasket(cart, menu, settings);
   const open = ordersOpen(menu, now);
@@ -40,26 +41,6 @@ export default async function CheckoutPage() {
   if (!isBasketPayable(basket)) redirect("/basket");
   if (!open || !menu) redirect("/basket");
 
-  const slots = await db.pickupSlot.findMany({
-    where: { active: true },
-    orderBy: { position: "asc" },
-  });
-
-  const bookedBySlot = await Promise.all(
-    slots.map(async (slot) => {
-      const booked = await db.order.count({
-        where: {
-          pickupSlotId: slot.id,
-          pickupDate: menu.pickupDate,
-          paymentStatus: { in: ["pending", "submitted", "paid"] },
-          fulfillmentStatus: { not: "cancelled" },
-        },
-      });
-      return { ...slot, booked };
-    }),
-  );
-
-  const deliveryWindows = await deliveryWindowsForMenu(menu.id, menu.pickupDate);
   const paymentOptions = await resolveOnlinePaymentOptions(settings);
   const deliveryFeeCentavos = flatDeliveryFeeCentavos(settings);
 
@@ -104,8 +85,8 @@ export default async function CheckoutPage() {
         <Eyebrow>Checkout</Eyebrow>
         <h1 className="text-[2.35rem] leading-[1] md:text-[3.4rem]">Almost yours</h1>
         <p className="muted text-sm leading-6">
-          Orders close {formatDateTime(menu.cutoffAt)}. Collection {formatDay(menu.pickupDate)}.
-          Payment is taken in full now.
+          Orders close {formatDateTime(menu.cutoffAt)}. Pick a free pickup or delivery day on the
+          calendar. Payment is taken in full now.
           {!user && settings.loyaltyEnabled ? (
             <>
               {" "}
@@ -119,7 +100,6 @@ export default async function CheckoutPage() {
       </header>
 
       <div className="grid gap-8 lg:grid-cols-[1.4fr_1fr] lg:items-start lg:gap-12">
-        {/* On phone, summary sits above the long form so totals stay visible first. */}
         <Card className="order-1 grid gap-5 p-5 lg:order-2 lg:sticky lg:top-24 lg:gap-6">
           <div className="flex items-baseline justify-between gap-3">
             <h2 className="font-display text-xl">Order summary</h2>
@@ -156,17 +136,7 @@ export default async function CheckoutPage() {
 
         <div className="order-2 lg:order-1">
           <CheckoutForm
-            slots={bookedBySlot}
-            deliveryWindows={deliveryWindows.map((w) => ({
-              id: w.id,
-              label: w.label,
-              dateIso: w.date.toISOString(),
-              dateLabel: formatDay(w.date),
-              start: w.start,
-              end: w.end,
-              capacity: w.capacity,
-              booked: w.booked,
-            }))}
+            availabilitySlots={availabilitySlots}
             paymentOptions={paymentOptions}
             deliveryNote={settings.deliveryNote}
             basketTotalCentavos={applied.total}

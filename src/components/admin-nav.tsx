@@ -15,7 +15,6 @@ import {
   BarChart3,
   Settings,
   Store,
-  Truck,
   Wallet,
   LogOut,
   ChevronDown,
@@ -36,7 +35,7 @@ const PRIMARY = [
 ] as const;
 
 const MORE = [
-  { href: "/admin/delivery", label: "Delivery", icon: Truck },
+  { href: "/admin/availability", label: "Calendar", icon: CalendarDays },
   { href: "/admin/ingredients", label: "Ingredients", icon: Wheat },
   { href: "/admin/purchases", label: "Purchases", icon: ShoppingBag },
   { href: "/admin/recipes", label: "Recipes", icon: BookOpen },

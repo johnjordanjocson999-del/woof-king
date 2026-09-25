@@ -6,42 +6,15 @@ import { placeOrder, type CheckoutState, type CheckoutValues } from "@/app/actio
 import { ChoiceCard, Field, Notice } from "@/components/ui";
 import { SubmitButton } from "@/components/form";
 import { SavedPlacesPicker } from "@/components/saved-places-picker";
-import { formatClock } from "@/lib/time";
+import { CheckoutAvailabilityPicker } from "@/components/checkout-availability-picker";
 import { formatPeso } from "@/lib/money";
 import type { CheckoutPaymentOption } from "@/domain/payment-options";
 import type { SavedAddress } from "@/lib/saved-addresses";
-
-interface Slot {
-  id: string;
-  label: string;
-  start: string;
-  end: string;
-  capacity: number;
-  booked: number;
-}
-
-interface DeliveryWindowOption {
-  id: string;
-  label: string;
-  dateIso: string;
-  dateLabel: string;
-  start: string;
-  end: string;
-  capacity: number;
-  booked: number;
-}
-
-function firstOpenSlotId(slots: Slot[]) {
-  return slots.find((slot) => slot.booked < slot.capacity)?.id ?? "";
-}
-
-function firstOpenWindowId(windows: DeliveryWindowOption[]) {
-  return windows.find((window) => window.booked < window.capacity)?.id ?? "";
-}
+import type { AvailabilitySlotView } from "@/domain/availability-types";
+import { openDateKeys, slotsForDate } from "@/domain/availability-helpers";
 
 export function CheckoutForm({
-  slots,
-  deliveryWindows,
+  availabilitySlots,
   paymentOptions,
   deliveryNote,
   basketTotalCentavos,
@@ -55,8 +28,7 @@ export function CheckoutForm({
   defaultDeliveryAddress = "",
   defaultDeliveryInstructions = "",
 }: {
-  slots: Slot[];
-  deliveryWindows: DeliveryWindowOption[];
+  availabilitySlots: AvailabilitySlotView[];
   paymentOptions: CheckoutPaymentOption[];
   deliveryNote: string;
   basketTotalCentavos: number;
@@ -74,6 +46,8 @@ export function CheckoutForm({
   const [places, setPlaces] = useState<SavedAddress[]>(savedAddresses);
   const [saveAddress, setSaveAddress] = useState(true);
   const [favoriteAddress, setFavoriteAddress] = useState(false);
+  const [selectedDateKey, setSelectedDateKey] = useState("");
+  const [selectedSlotId, setSelectedSlotId] = useState("");
 
   useEffect(() => {
     setPlaces(savedAddresses);
@@ -85,15 +59,17 @@ export function CheckoutForm({
     contactEmail: defaultEmail ?? "",
     notes: "",
     fulfillment: "pickup",
-    pickupSlotId: firstOpenSlotId(slots),
-    deliveryWindowId: firstOpenWindowId(deliveryWindows),
+    availabilitySlotId: "",
     deliveryAddress: defaultDeliveryAddress,
     deliveryInstructions: defaultDeliveryInstructions,
     paymentMethod: paymentOptions[0]?.slug ?? "",
   }));
 
   useEffect(() => {
-    if (state.values) setValues(state.values);
+    if (state.values) {
+      setValues(state.values);
+      setSelectedSlotId(state.values.availabilitySlotId);
+    }
   }, [state]);
 
   function patch<K extends keyof CheckoutValues>(key: K, value: CheckoutValues[K]) {
@@ -101,7 +77,30 @@ export function CheckoutForm({
   }
 
   const fulfillment = values.fulfillment;
-  const openWindows = deliveryWindows.filter((w) => w.booked < w.capacity);
+  const filteredSlots = useMemo(
+    () =>
+      availabilitySlots.filter(
+        (s) => s.active && (s.kind === "both" || s.kind === fulfillment),
+      ),
+    [availabilitySlots, fulfillment],
+  );
+
+  // Keep date/time valid when fulfillment or open slots change, and when the customer picks a new day.
+  useEffect(() => {
+    const dates = openDateKeys(filteredSlots);
+    const nextDate = dates.includes(selectedDateKey) ? selectedDateKey : dates[0] ?? "";
+    if (nextDate !== selectedDateKey) setSelectedDateKey(nextDate);
+    const times = nextDate ? slotsForDate(filteredSlots, nextDate) : [];
+    const nextSlot = times.some((t) => t.id === selectedSlotId)
+      ? selectedSlotId
+      : times[0]?.id ?? "";
+    if (nextSlot !== selectedSlotId) {
+      setSelectedSlotId(nextSlot);
+      patch("availabilitySlotId", nextSlot);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fulfillment, filteredSlots, selectedDateKey]);
+
   const deliveryFee = fulfillment === "delivery" ? deliveryFeeCentavos : 0;
   const grandTotal = basketTotalCentavos + deliveryFee;
 
@@ -203,7 +202,7 @@ export function CheckoutForm({
             <span className="grid gap-1">
               <span className="font-display text-lg">Pickup</span>
               <span className="muted text-xs font-normal">
-                Free. Bring your order code on Sunday.
+                Free. Collect on a day the bakery marked free.
               </span>
             </span>
           </label>
@@ -218,81 +217,33 @@ export function CheckoutForm({
             <span className="grid gap-1">
               <span className="font-display text-lg">Delivery</span>
               <span className="muted text-xs font-normal">
-                Flat {formatPeso(deliveryFeeCentavos)} added to your total.
+                Flat {formatPeso(deliveryFeeCentavos)} · on free calendar days only.
               </span>
             </span>
           </label>
         </div>
 
-        {fulfillment === "pickup" ? (
-          <div className="grid gap-3">
-            <p className="text-sm font-semibold">Sunday collection slot</p>
-            {state.fieldErrors?.pickupSlotId ? (
-              <p className="field-error">{state.fieldErrors.pickupSlotId}</p>
-            ) : null}
-            <div className="grid items-stretch gap-2 sm:grid-cols-2">
-              {slots.map((slot) => {
-                const full = slot.booked >= slot.capacity;
-                const left = Math.max(0, slot.capacity - slot.booked);
-                return (
-                  <ChoiceCard
-                    key={slot.id}
-                    name="pickupSlotId"
-                    value={slot.id}
-                    checked={!full && values.pickupSlotId === slot.id}
-                    onChange={() => patch("pickupSlotId", slot.id)}
-                    disabled={full}
-                    title={slot.label}
-                    meta={full ? "Full" : `${left} left`}
-                  >
-                    {formatClock(slot.start)} – {formatClock(slot.end)}
-                  </ChoiceCard>
-                );
-              })}
-            </div>
-          </div>
-        ) : (
+        {fulfillment === "delivery" ? (
+          <Notice tone="info" title={`Delivery fee ${formatPeso(deliveryFeeCentavos)}`}>
+            {deliveryNote}
+          </Notice>
+        ) : null}
+
+        <CheckoutAvailabilityPicker
+          fulfillment={fulfillment}
+          slots={filteredSlots}
+          selectedDateKey={selectedDateKey}
+          selectedSlotId={selectedSlotId}
+          error={state.fieldErrors?.availabilitySlotId}
+          onSelectDate={setSelectedDateKey}
+          onSelectSlot={(id) => {
+            setSelectedSlotId(id);
+            patch("availabilitySlotId", id);
+          }}
+        />
+
+        {fulfillment === "delivery" ? (
           <div className="grid gap-4">
-            <Notice tone="info" title={`Delivery fee ${formatPeso(deliveryFeeCentavos)}`}>
-              {deliveryNote}
-            </Notice>
-
-            <div className="grid gap-3">
-              <p className="text-sm font-semibold">Available delivery date &amp; time</p>
-              {state.fieldErrors?.deliveryWindowId ? (
-                <p className="field-error">{state.fieldErrors.deliveryWindowId}</p>
-              ) : null}
-              {openWindows.length === 0 ? (
-                <Notice tone="warn" title="No delivery windows open">
-                  The bakery has not posted available delivery times for this week yet. Choose
-                  pickup, or message them after ordering if they open a window later.
-                </Notice>
-              ) : (
-                <div className="grid items-stretch gap-2 sm:grid-cols-2">
-                  {deliveryWindows.map((window) => {
-                    const full = window.booked >= window.capacity;
-                    const left = Math.max(0, window.capacity - window.booked);
-                    return (
-                      <ChoiceCard
-                        key={window.id}
-                        name="deliveryWindowId"
-                        value={window.id}
-                        checked={!full && values.deliveryWindowId === window.id}
-                        onChange={() => patch("deliveryWindowId", window.id)}
-                        disabled={full}
-                        title={window.label}
-                        meta={full ? "Full" : `${left} left`}
-                      >
-                        {window.dateLabel}
-                        <br />
-                        {formatClock(window.start)} – {formatClock(window.end)}
-                      </ChoiceCard>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
             <SavedPlacesPicker
               places={places}
               selectedAddress={values.deliveryAddress}
@@ -371,7 +322,7 @@ export function CheckoutForm({
               {!saveAddress ? <input type="hidden" name="saveAddress" value="0" /> : null}
             </div>
           </div>
-        )}
+        ) : null}
       </fieldset>
 
       <fieldset className="grid gap-4">

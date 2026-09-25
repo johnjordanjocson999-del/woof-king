@@ -184,9 +184,7 @@ export async function publishMenu(menuId: string) : Promise<void> {
     });
   });
 
-  // Sat + Sun, 9–11 and 15–18 — created once per published week.
-  const { ensureStandardDeliveryWindows } = await import("@/domain/delivery");
-  await ensureStandardDeliveryWindows(menuId, menu.pickupDate);
+  // Handoff days/times come from /admin/availability — owner paints the calendar.
 
   revalidateAdmin();
   return;

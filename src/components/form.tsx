@@ -53,25 +53,28 @@ export function ConfirmSubmit({
   variant = "danger",
   small = true,
   className,
+  disabled = false,
 }: {
   children: React.ReactNode;
   message: string;
   variant?: "primary" | "ghost" | "solid" | "danger";
   small?: boolean;
   className?: string;
+  disabled?: boolean;
 }) {
   const { pending } = useFormStatus();
+  const busy = pending || disabled;
 
   return (
     <button
       type="submit"
-      disabled={pending}
+      disabled={busy}
       onClick={(event) => {
         if (!window.confirm(message)) event.preventDefault();
       }}
       className={cn("btn", `btn-${variant}`, small && "btn-sm", className)}
     >
-      {pending ? <Loader2 size={14} className="animate-spin" aria-hidden /> : children}
+      {busy ? <Loader2 size={14} className="animate-spin" aria-hidden /> : children}
     </button>
   );
 }
