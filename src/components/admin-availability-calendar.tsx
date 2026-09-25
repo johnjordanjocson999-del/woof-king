@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
   closeAvailabilityDay,
@@ -13,7 +13,7 @@ import {
 import { SubmitButton, ConfirmSubmit } from "@/components/form";
 import { Chip } from "@/components/ui";
 
-export type AdminSlotRow = {
+export type AdminSlotProp = {
   id: string;
   dateKey: string;
   kind: string;
@@ -23,6 +23,15 @@ export type AdminSlotRow = {
   capacity: number;
   booked: number;
   active: boolean;
+};
+
+type TimeDraft = {
+  key: string;
+  label: string;
+  start: string;
+  end: string;
+  capacity: string;
+  notes: string;
 };
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -35,6 +44,30 @@ function pad(n: number) {
   return String(n).padStart(2, "0");
 }
 
+function formatDateKey(key: string): string {
+  const [y, m, d] = key.split("-").map(Number);
+  if (!y || !m || !d) return key;
+  const date = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+  return date.toLocaleDateString("en-PH", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+function newTimeDraft(partial?: Partial<TimeDraft>): TimeDraft {
+  return {
+    key: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    label: "",
+    start: "09:00",
+    end: "11:00",
+    capacity: "12",
+    notes: "",
+    ...partial,
+  };
+}
+
 export function AdminAvailabilityCalendar({
   initialYear,
   initialMonth,
@@ -44,12 +77,17 @@ export function AdminAvailabilityCalendar({
   initialYear: number;
   initialMonth: number; // 1-12
   todayKey: string;
-  slots: AdminSlotRow[];
+  slots: AdminSlotProp[];
 }) {
   const [year, setYear] = useState(initialYear);
   const [month, setMonth] = useState(initialMonth);
-  const [selected, setSelected] = useState(todayKey);
+  const [selected, setSelected] = useState<string[]>([todayKey]);
+  const [multiMode, setMultiMode] = useState(false);
   const [pending, start] = useTransition();
+  const [kind, setKind] = useState("both");
+  const [timeDrafts, setTimeDrafts] = useState<TimeDraft[]>([
+    newTimeDraft({ label: "Morning", start: "09:00", end: "11:00" }),
+  ]);
 
   const freeKeys = useMemo(() => {
     const set = new Set<string>();
@@ -59,9 +97,18 @@ export function AdminAvailabilityCalendar({
     return set;
   }, [slots]);
 
+  const selectedSorted = useMemo(() => [...selected].sort(), [selected]);
+  const focusDay = selectedSorted[0] ?? todayKey;
+
   const daySlots = useMemo(
-    () => slots.filter((s) => s.dateKey === selected).sort((a, b) => a.start.localeCompare(b.start)),
-    [slots, selected],
+    () =>
+      slots
+        .filter((s) => selectedSorted.includes(s.dateKey))
+        .sort(
+          (a, b) =>
+            a.dateKey.localeCompare(b.dateKey) || a.start.localeCompare(b.start),
+        ),
+    [slots, selectedSorted],
   );
 
   const cells = useMemo(() => {
@@ -89,11 +136,33 @@ export function AdminAvailabilityCalendar({
     setMonth(m);
   }
 
+  function toggleDay(key: string, multi: boolean) {
+    setSelected((prev) => {
+      if (multi) {
+        if (prev.includes(key)) {
+          const next = prev.filter((k) => k !== key);
+          return next.length > 0 ? next : [key];
+        }
+        return [...prev, key];
+      }
+      return [key];
+    });
+  }
+
+  function patchDraft(key: string, patch: Partial<TimeDraft>) {
+    setTimeDrafts((rows) => rows.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+  }
+
   const monthTitle = new Date(Date.UTC(year, month - 1, 1)).toLocaleString("en-PH", {
     month: "long",
     year: "numeric",
     timeZone: "UTC",
   });
+
+  const selectedLabel =
+    selectedSorted.length === 1
+      ? formatDateKey(selectedSorted[0])
+      : `${selectedSorted.length} days selected`;
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
@@ -119,13 +188,15 @@ export function AdminAvailabilityCalendar({
             }
             const key = cell.key;
             const isFree = freeKeys.has(key);
-            const isSelected = selected === key;
+            const isSelected = selected.includes(key);
             const isToday = key === todayKey;
             return (
               <button
                 key={key}
                 type="button"
-                onClick={() => setSelected(key)}
+                onClick={(e) =>
+                  toggleDay(key, multiMode || e.metaKey || e.ctrlKey || e.shiftKey)
+                }
                 className={cn(
                   "relative grid min-h-11 place-items-center rounded-lg border text-sm font-semibold transition",
                   isSelected
@@ -148,95 +219,214 @@ export function AdminAvailabilityCalendar({
           })}
         </div>
         <p className="muted text-xs leading-5">
-          Green days are free for pickup / delivery. Other days stay order-only — customers can still
-          order while the menu is open, but cannot book handoff that day.
+          Tap a day to select it. Turn on <strong>Select multiple</strong> (or hold Ctrl / Cmd /
+          Shift) to paint several days. Green = already free.
         </p>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={multiMode}
+            onChange={(e) => setMultiMode(e.target.checked)}
+          />
+          Select multiple days
+        </label>
+        {selectedSorted.length > 1 ? (
+          <div className="flex flex-wrap gap-1.5">
+            {selectedSorted.map((key) => (
+              <button
+                key={key}
+                type="button"
+                className="inline-flex items-center gap-1 rounded-full border border-[var(--line)] px-2 py-0.5 text-[0.7rem]"
+                onClick={() => toggleDay(key, true)}
+              >
+                {formatDateKey(key)}
+                <X size={12} aria-hidden />
+              </button>
+            ))}
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => setSelected([focusDay])}
+            >
+              Clear to one day
+            </button>
+          </div>
+        ) : null}
       </div>
 
       <div className="grid content-start gap-4">
         <div className="grid gap-2">
-          <p className="eyebrow">Selected day</p>
-          <h2 className="font-display text-2xl">{selected}</h2>
+          <p className="eyebrow">Selected</p>
+          <h2 className="font-display text-2xl">{selectedLabel}</h2>
+          {selectedSorted.length > 1 ? (
+            <p className="muted text-xs leading-5">
+              Actions below apply to all selected days.
+            </p>
+          ) : null}
         </div>
 
         <div className="flex flex-wrap gap-2">
           <form
             action={(fd) => {
               start(async () => {
-                fd.set("date", selected);
+                for (const d of selectedSorted) fd.append("dates", d);
                 fd.set("kind", "both");
                 await openDayStandard(fd);
               });
             }}
           >
-            <SubmitButton disabled={pending}>Open day (9–11 &amp; 3–6)</SubmitButton>
+            <SubmitButton disabled={pending}>
+              Open {selectedSorted.length > 1 ? "days" : "day"} (9–11 &amp; 3–6)
+            </SubmitButton>
           </form>
           <form
             action={(fd) => {
               start(async () => {
-                fd.set("date", selected);
+                for (const d of selectedSorted) fd.append("dates", d);
                 await closeAvailabilityDay(fd);
               });
             }}
           >
             <ConfirmSubmit
               disabled={pending}
-              message="Close this day? Existing bookings stay; the day becomes order-only."
+              message={
+                selectedSorted.length > 1
+                  ? `Close ${selectedSorted.length} days? Existing bookings stay; those days become order-only.`
+                  : "Close this day? Existing bookings stay; the day becomes order-only."
+              }
             >
-              Close day
+              Close {selectedSorted.length > 1 ? "days" : "day"}
             </ConfirmSubmit>
           </form>
         </div>
 
         <div className="grid gap-3 rounded-[var(--radius-md)] border border-[var(--line)] p-4">
-          <h3 className="font-display text-lg">Add a time</h3>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="font-display text-lg">Add times</h3>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() =>
+                setTimeDrafts((rows) => [
+                  ...rows,
+                  newTimeDraft({
+                    label: "",
+                    start: "15:00",
+                    end: "18:00",
+                  }),
+                ])
+              }
+            >
+              <Plus size={14} aria-hidden />
+              Add another time
+            </button>
+          </div>
+
           <form
-            className="grid gap-3 sm:grid-cols-2"
+            className="grid gap-4"
             action={(fd) => {
               start(async () => {
-                fd.set("date", selected);
+                for (const d of selectedSorted) fd.append("dates", d);
+                fd.set("kind", kind);
+                for (const row of timeDrafts) {
+                  fd.append("label", row.label);
+                  fd.append("start", row.start);
+                  fd.append("end", row.end);
+                  fd.append("capacity", row.capacity);
+                  fd.append("notes", row.notes);
+                }
                 await createAvailabilitySlot(fd);
               });
             }}
           >
             <label>
               Available for
-              <select name="kind" defaultValue="both">
+              <select value={kind} onChange={(e) => setKind(e.target.value)}>
                 <option value="both">Pickup &amp; delivery</option>
                 <option value="pickup">Pickup only</option>
                 <option value="delivery">Delivery only</option>
               </select>
             </label>
-            <label>
-              Label
-              <input name="label" placeholder="Morning / Afternoon" />
-            </label>
-            <label>
-              Start
-              <input name="start" type="time" required defaultValue="09:00" />
-            </label>
-            <label>
-              End
-              <input name="end" type="time" required defaultValue="11:00" />
-            </label>
-            <label>
-              Capacity
-              <input name="capacity" type="number" min={1} max={200} defaultValue={12} />
-            </label>
-            <label className="sm:col-span-2">
-              Staff notes
-              <input name="notes" placeholder="Optional" />
-            </label>
-            <div className="sm:col-span-2">
-              <SubmitButton disabled={pending}>Save time band</SubmitButton>
-            </div>
+
+            {timeDrafts.map((row, index) => (
+              <div
+                key={row.key}
+                className="grid gap-3 rounded-[var(--radius-sm)] border border-[var(--line)] p-3 sm:grid-cols-2"
+              >
+                <div className="sm:col-span-2 flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold">Time {index + 1}</p>
+                  {timeDrafts.length > 1 ? (
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={() =>
+                        setTimeDrafts((rows) => rows.filter((r) => r.key !== row.key))
+                      }
+                    >
+                      Remove
+                    </button>
+                  ) : null}
+                </div>
+                <label>
+                  Label
+                  <input
+                    value={row.label}
+                    onChange={(e) => patchDraft(row.key, { label: e.target.value })}
+                    placeholder="Morning / Afternoon"
+                  />
+                </label>
+                <label>
+                  Capacity
+                  <input
+                    type="number"
+                    min={1}
+                    max={200}
+                    value={row.capacity}
+                    onChange={(e) => patchDraft(row.key, { capacity: e.target.value })}
+                  />
+                </label>
+                <label>
+                  Start
+                  <input
+                    type="time"
+                    required
+                    value={row.start}
+                    onChange={(e) => patchDraft(row.key, { start: e.target.value })}
+                  />
+                </label>
+                <label>
+                  End
+                  <input
+                    type="time"
+                    required
+                    value={row.end}
+                    onChange={(e) => patchDraft(row.key, { end: e.target.value })}
+                  />
+                </label>
+                <label className="sm:col-span-2">
+                  Staff notes
+                  <input
+                    value={row.notes}
+                    onChange={(e) => patchDraft(row.key, { notes: e.target.value })}
+                    placeholder="Optional"
+                  />
+                </label>
+              </div>
+            ))}
+
+            <SubmitButton disabled={pending}>
+              Save {timeDrafts.length > 1 ? `${timeDrafts.length} times` : "time"}
+              {selectedSorted.length > 1 ? ` on ${selectedSorted.length} days` : ""}
+            </SubmitButton>
           </form>
         </div>
 
         <div className="grid gap-2">
-          <h3 className="font-display text-lg">Times on this day</h3>
+          <h3 className="font-display text-lg">
+            Times on {selectedSorted.length > 1 ? "selected days" : "this day"}
+          </h3>
           {daySlots.length === 0 ? (
-            <p className="muted text-sm">No free times yet — this day is order-only.</p>
+            <p className="muted text-sm">No free times yet — order-only.</p>
           ) : (
             <ul className="grid gap-2">
               {daySlots.map((slot) => (
@@ -249,6 +439,9 @@ export function AdminAvailabilityCalendar({
                 >
                   <div className="grid gap-1">
                     <div className="flex flex-wrap items-center gap-2">
+                      {selectedSorted.length > 1 ? (
+                        <span className="muted text-xs">{formatDateKey(slot.dateKey)}</span>
+                      ) : null}
                       <span className="font-semibold">
                         {slot.start} – {slot.end}
                       </span>
